@@ -1,0 +1,22 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1539466534401.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "E61A262D",
+    "lastKnownWriteTime" : 1539466545,
+    "last_content_update" : 1539466545496,
+    "path" : "~/Documents/GitHub/Project2/Project2-ASandoval/Project2/app.R",
+    "project_path" : "app.R",
+    "properties" : {
+        "cursorPosition" : "9,1",
+        "scrollLine" : "0"
+    },
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
