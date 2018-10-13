@@ -5,14 +5,14 @@
     "dirty" : false,
     "encoding" : "UTF-8",
     "folds" : "",
-    "hash" : "0",
+    "hash" : "1976373808",
     "id" : "E61A262D",
-    "lastKnownWriteTime" : 1539466583,
-    "last_content_update" : 1539466583660,
+    "lastKnownWriteTime" : 1539466691,
+    "last_content_update" : 1539466691916,
     "path" : "~/Documents/GitHub/Project2/Project2-ASandoval/Project2/app.R",
     "project_path" : "app.R",
     "properties" : {
-        "cursorPosition" : "8,10",
+        "cursorPosition" : "9,15",
         "scrollLine" : "0"
     },
     "relative_order" : 1,
