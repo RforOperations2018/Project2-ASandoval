@@ -6,7 +6,7 @@
 #
 #    http://shiny.rstudio.com/
 
-a <- "Hi"
+a <- "bye"
 #
 
 library(shiny)
