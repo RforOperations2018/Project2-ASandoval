@@ -90,7 +90,8 @@ property.load <- read.csv ("projectdata_7.csv")
 
 sale.load <- sale.upload %>%
   mutate( 
-    SaleDate = as.POSIXct(SaleDate))
+    SaleDate = as.POSIXct(SaleDate),
+    ZIPCode = str_replace_all(ZIPCode, '"', ""))
 
 pdf(NULL)
 
@@ -161,8 +162,8 @@ body <- dashboardBody(tabItems(
            # names of the plot tabs
            fluidRow(
              tabBox(title = "Plot", width = 12,
-                    tabPanel("Property Change of Value", plotlyOutput("plot_value")))
-                    # tabPanel("Properties by Ward", plotlyOutput("plot_properties")),
+                    tabPanel("Property Change of Value", plotlyOutput("plot_value")),
+                    tabPanel("Sum of taxes owed by Zip Code", plotlyOutput("plot_properties")))
                     # tabPanel("Purchases by Year", plotlyOutput("plot_years")))
            )
    ),
@@ -218,31 +219,19 @@ body <- dashboardBody(tabItems(
                                         hjust = 1))
        
    })
-   # # A plot showing properties by ward
-   # output$plot_properties <- renderPlotly({
-   #   property <- propInput()
-   #   ggplot(data = property,
-   #          aes(x = geographic_ward,
-   #              fill = SaleType)) +
-   #     geom_bar(position = "stack") +
-   #     guides(fill = FALSE) +
-   #     scale_y_continuous(name = "Count of Properties") +
-   #     scale_x_continuous(name = "Wards",
-   #                        breaks = c(1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 66))
-   # })
-   # # A plot showing the the fequency of properties purchased over the years
-   # output$plot_years <- renderPlotly({
-   #   property <- propInput()
-   #   ggplot(data = property,
-   #          aes(x = sale_year,
-   #              color = SaleType ))  +
-   #     geom_freqpoly() +
-   #     guides(fill = FALSE) +
-   #     scale_x_continuous(name = "Date",
-   #                        breaks = c(1920, 1930, 1940, 1950, 1960, 1970, 1980, 1990, 2000, 2010)) +
-   #     scale_y_continuous(name = "Count of Property Purchases") +
-   #     theme(legend.title = element_blank())
-   # })
+   # Plot 2- Plot showing taxes owed by zip code
+   output$plot_properties <- renderPlotly({
+     property <- propInput ()
+     ggplot (data = sale.load,
+            aes (x = ZIPCode,
+                y = round (CostsTaxes, 0), na.rm = T )) +
+       geom_col (position = position_dodge(width = 0.9)) +
+       guides (fill = FALSE) +
+       scale_y_continuous (name = "Sum of Taxes Owed") +
+       scale_x_discrete (name = "Zip Code") +
+       coord_flip ()
+   })
+
    # Data table of Assessment
    output$table <- DT::renderDataTable({
      subset(propInput(), select = c(DocketNumber, SaleType, AttorneyName, Plaintiff, Defendant, SaleDate, Address, CostsTaxes))
@@ -252,19 +241,19 @@ body <- dashboardBody(tabItems(
    output$attorney <- renderInfoBox({
      proper <- propInput()
      name <- names(sort(table(sale.load$AttorneyName), decreasing = TRUE))
-     valueBox(subtitle = "Is the most common Attorney", value = name,  color = "green")
+     valueBox(subtitle = "Is the most common Attorney", value = name, icon = icon("scale"),  color = "green")
    })
    # Average sale price box
    output$avgtaxes <- renderValueBox({
      proper <- propInput()
      nums <- prettyNum(round(mean(sale.load$CostsTaxes, na.rm = T), 0))
-     valueBox(subtitle = "Average Taxes Owed ", value = nums, icon = icon("fa fa-user-circle-o"), color = "red")
+     valueBox(subtitle = "Average Taxes Owed ", value = nums, icon = icon("usd"), color = "red")
    })
    # Total Taxable Land box
    output$zipcode <- renderValueBox({
      proper <- propInput()
      name <- names(sort(table(sale.load$ZIPCode), decreasing = TRUE))
-     valueBox(subtitle = "Is the most common Zipcode", value = name, icon = icon("thumbs-up"), color = "purple")
+     valueBox(subtitle = "Is the most common Zipcode", value = name, icon("fa fa-user-circle-o"), color = "blue")
    })
  }
  # Run the application
