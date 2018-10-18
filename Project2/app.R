@@ -110,40 +110,44 @@ sidebar <- dashboardSidebar(
   sidebarMenu(
     id = "tabs",
     menuItem("Plot", icon = icon("bar-chart"), tabName = "plot"),
-    menuItem("Table", icon = icon("table"), tabName = "table"),
-    # No third page?!
+    menuItem("Data Table", icon = icon("table"), tabName = "table"),
+
     # Category Select
     selectInput("categorySelect",
-                "Types of Properties:",
+                "Types of Sheriff Sale's:",
                 choices = sort(unique(sale.load$SaleType)),
                 multiple = TRUE,
                 selectize = TRUE,
                 selected = c("Mortgage Foreclosure", "Municipal Lien", "Other Real Estate")),
-    # Year Select
-    dateRangeInput("yearSelect",
-                   "Sale Year:", 
+    
+    # Date Select
+    dateRangeInput("dateSelect",
+                   "Auction Date:", 
                    start = Sys.Date()-38, end = Sys.Date()-7, 
                    min = "2001-01-01", max = Sys.Date()-7, 
                    format = "yyyy-mm-dd", startview = "month", weekstart = 0,
                    language = "en", separator = " to ", width = NULL),
-    # sliderInput("yearSelect",
-    #             "Sale Year:",
-    #             min = min(sale.load$SaleDate, na.rm = T),
-    #             max = max(sale.load$SaleDate, na.rm = T),
-    #             value = c(min(sale.load$SaleDate, na.rm = T), max(sale.load$SaleDate, na.rm = T)),
-    #             step = 25),
-    # Check box Input for how many bathrooms
+    
+   # Select Amount Owed
+    sliderInput("TaxesSelect",
+                "Outstanding Taxes Owed:",
+                min = min(sale.load$CostsTaxes, na.rm = T),
+                max = max(sale.load$CostsTaxes, na.rm = T),
+                value = c(min(sale.load$CostsTaxes, na.rm = T), max(sale.load$CostsTaxes, na.rm = T)),
+                step = 5000)
+    
+    # #Check box Input for how many bathrooms
     # checkboxGroupInput(inputId = "bathroomSelect",
     #                    label = "How Many Bathrooms does the Property Have?:",
     #                    choiceNames = list("0", "1", "2", "3", "4", "5", "6"),
     #                    choiceValues = list("0", "1", "2", "3", "4", "5", "6")),
     # Select input for story
-    selectInput("storySelect",
-                "Story:",
-                choices = sort(unique(sale.load$number_stories)),
-                multiple = TRUE,
-                selectize = TRUE,
-                selected = c("0","1", "2", "3", "4", "5", "6","22", "28", "31", "33"))
+    # selectInput("storySelect",
+    #             "Story:",
+    #             choices = sort(unique(sale.load$number_stories)),
+    #             multiple = TRUE,
+    #             selectize = TRUE,
+    #             selected = c("0","1", "2", "3", "4", "5", "6","22", "28", "31", "33"))
   )
 )
 
@@ -181,7 +185,7 @@ body <- dashboardBody(tabItems(
      property <- sale.load  %>%
 
        # Slider Filter
-       filter(SaleDate >= input$yearSelect[1] & SaleDate <= input$yearSelect[2])
+       filter(SaleDate >= input$dateSelect[1] & SaleDate <= input$dateSelect[2])
 
      # Category Filter
      if (length(input$categorySelect) > 0 ) {
@@ -216,7 +220,7 @@ body <- dashboardBody(tabItems(
      property <- propInput()
      ggplot(data = property,
             aes(x = geographic_ward,
-                fill = category_code_description)) +
+                fill = SaleType)) +
        geom_bar(position = "stack") +
        guides(fill = FALSE) +
        scale_y_continuous(name = "Count of Properties") +
@@ -228,17 +232,17 @@ body <- dashboardBody(tabItems(
      property <- propInput()
      ggplot(data = property,
             aes(x = sale_year,
-                color = category_code_description ))  +
+                color = SaleType ))  +
        geom_freqpoly() +
        guides(fill = FALSE) +
-       scale_x_continuous(name = "Sale Year",
+       scale_x_continuous(name = "Date",
                           breaks = c(1920, 1930, 1940, 1950, 1960, 1970, 1980, 1990, 2000, 2010)) +
        scale_y_continuous(name = "Count of Property Purchases") +
        theme(legend.title = element_blank())
    })
    # Data table of Assessment
    output$table <- DT::renderDataTable({
-     subset(propInput(), select = c(category_code_description, location, market_value, owner_1, parcel_number, sale_date, sale_price))
+     subset(propInput(), select = c(DocketNumber, SaleType, AttorneyName, Plaintiff, Defendant, SaleDate, Address, CostsTaxes))
    })
    # Average current market value box
    output$avgmarket <- renderInfoBox({
