@@ -129,25 +129,19 @@ sidebar <- dashboardSidebar(
                    language = "en", separator = " to ", width = NULL),
     
    # Select Amount Owed
-    sliderInput("TaxesSelect",
+    sliderInput("taxesSelect",
                 "Outstanding Taxes Owed:",
                 min = min(sale.load$CostsTaxes, na.rm = T),
                 max = max(sale.load$CostsTaxes, na.rm = T),
                 value = c(min(sale.load$CostsTaxes, na.rm = T), max(sale.load$CostsTaxes, na.rm = T)),
-                step = 5000)
-    
-    # #Check box Input for how many bathrooms
-    # checkboxGroupInput(inputId = "bathroomSelect",
-    #                    label = "How Many Bathrooms does the Property Have?:",
-    #                    choiceNames = list("0", "1", "2", "3", "4", "5", "6"),
-    #                    choiceValues = list("0", "1", "2", "3", "4", "5", "6")),
-    # Select input for story
-    # selectInput("storySelect",
-    #             "Story:",
-    #             choices = sort(unique(sale.load$number_stories)),
-    #             multiple = TRUE,
-    #             selectize = TRUE,
-    #             selected = c("0","1", "2", "3", "4", "5", "6","22", "28", "31", "33"))
+                step = 5000),
+   
+    # Select Ready for Auction
+   selectizeInput("readySelect", 
+                  "Is the Property Ready for Auction?", 
+                  choices = c("TRUE", "FALSE"), 
+                  multiple = FALSE,
+                  selected = "TRUE")
   )
 )
 
