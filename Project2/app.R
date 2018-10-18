@@ -95,15 +95,14 @@ sale.load <- sale.upload %>%
 pdf(NULL)
 
 
-header <- dashboardHeader(title = "Philadelphia Properties",
+header <- dashboardHeader(title = "Pittsburgh Properties",
                           dropdownMenu(type = "messages",
                                        messageItem(
-                                         from = "Donald J. Trump",
-                                         message = HTML("Help me expand Trump Organization!"),
+                                         from = "Mayor Bill Peduto",
+                                         message = HTML("We need to increase the tax base!"),
                                          icon = icon("exclamation-circle"))
                           )
 )
-
 
 sidebar <- dashboardSidebar(
   # bars on the side
@@ -122,7 +121,7 @@ sidebar <- dashboardSidebar(
     
     # Date Select
     dateRangeInput("dateSelect",
-                   "Auction Date:", 
+                   "Sheriff Sale Auction Date:", 
                    start = Sys.Date()-38, end = Sys.Date()-7, 
                    min = "2001-01-01", max = Sys.Date()-7, 
                    format = "yyyy-mm-dd", startview = "month", weekstart = 0,
@@ -162,9 +161,9 @@ body <- dashboardBody(tabItems(
            # names of the plot tabs
            fluidRow(
              tabBox(title = "Plot", width = 12,
-                    tabPanel("Property Change of Value", plotlyOutput("plot_value")),
-                    tabPanel("Properties by Ward", plotlyOutput("plot_properties")),
-                    tabPanel("Purchases by Year", plotlyOutput("plot_years")))
+                    tabPanel("Property Change of Value", plotlyOutput("plot_value")))
+                    # tabPanel("Properties by Ward", plotlyOutput("plot_properties")),
+                    # tabPanel("Purchases by Year", plotlyOutput("plot_years")))
            )
    ),
    # Table name
@@ -184,7 +183,7 @@ body <- dashboardBody(tabItems(
      property <- sale.load  %>%
 
        # Slider Filter
-       filter(SaleDate >= input$dateSelect[1] & SaleDate <= input$dateSelect[2])
+      filter(SaleDate >= input$dateSelect[1] & SaleDate <= input$dateSelect[2])
 
      # Category Filter
      if (length(input$categorySelect) > 0 ) {
@@ -203,42 +202,47 @@ body <- dashboardBody(tabItems(
    # Reactive melted data
    mInput <- reactive({
      property <- propInput()
-     property_m <- property %>%
-       melt(id = "SaleType")
    })
-   # A plot showing the sale price of properties
+   
+   # Plot 1-  Counts of Properties by Sale Tpes
    output$plot_value <- renderPlotly({
      property <- propInput()
-     ggplot(data = property,
-            aes(x = SaleType))  +
-       geom_bar(position = "stack") +
-       guides(fill = FALSE) 
-   })
-   # A plot showing properties by ward
-   output$plot_properties <- renderPlotly({
-     property <- propInput()
-     ggplot(data = property,
-            aes(x = geographic_ward,
-                fill = SaleType)) +
+     ggplot(data = sale.load,
+            aes(x = SaleType,
+                fill = SaleStatus))  +
        geom_bar(position = "stack") +
        guides(fill = FALSE) +
        scale_y_continuous(name = "Count of Properties") +
-       scale_x_continuous(name = "Wards",
-                          breaks = c(1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 66))
+       theme(axis.text.x = element_text(angle = 15, 
+                                        vjust = 1, 
+                                        hjust = 1))
+       
    })
-   # A plot showing the the fequency of properties purchased over the years
-   output$plot_years <- renderPlotly({
-     property <- propInput()
-     ggplot(data = property,
-            aes(x = sale_year,
-                color = SaleType ))  +
-       geom_freqpoly() +
-       guides(fill = FALSE) +
-       scale_x_continuous(name = "Date",
-                          breaks = c(1920, 1930, 1940, 1950, 1960, 1970, 1980, 1990, 2000, 2010)) +
-       scale_y_continuous(name = "Count of Property Purchases") +
-       theme(legend.title = element_blank())
-   })
+   # # A plot showing properties by ward
+   # output$plot_properties <- renderPlotly({
+   #   property <- propInput()
+   #   ggplot(data = property,
+   #          aes(x = geographic_ward,
+   #              fill = SaleType)) +
+   #     geom_bar(position = "stack") +
+   #     guides(fill = FALSE) +
+   #     scale_y_continuous(name = "Count of Properties") +
+   #     scale_x_continuous(name = "Wards",
+   #                        breaks = c(1, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 66))
+   # })
+   # # A plot showing the the fequency of properties purchased over the years
+   # output$plot_years <- renderPlotly({
+   #   property <- propInput()
+   #   ggplot(data = property,
+   #          aes(x = sale_year,
+   #              color = SaleType ))  +
+   #     geom_freqpoly() +
+   #     guides(fill = FALSE) +
+   #     scale_x_continuous(name = "Date",
+   #                        breaks = c(1920, 1930, 1940, 1950, 1960, 1970, 1980, 1990, 2000, 2010)) +
+   #     scale_y_continuous(name = "Count of Property Purchases") +
+   #     theme(legend.title = element_blank())
+   # })
    # Data table of Assessment
    output$table <- DT::renderDataTable({
      subset(propInput(), select = c(DocketNumber, SaleType, AttorneyName, Plaintiff, Defendant, SaleDate, Address, CostsTaxes))
