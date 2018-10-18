@@ -141,7 +141,12 @@ sidebar <- dashboardSidebar(
                   "Is the Property Ready for Auction?", 
                   choices = c("TRUE", "FALSE"), 
                   multiple = FALSE,
-                  selected = "TRUE")
+                  selected = "TRUE"),
+   
+   # Download Data Buttion
+   tabItem("table",
+           inputPanel(
+             downloadButton("downloadData","Download Sheriff Sale Data")))
   )
 )
 
@@ -165,7 +170,7 @@ body <- dashboardBody(tabItems(
    # Table name
    tabItem("table",
            fluidPage(
-             box(title = "Philadelphia Property Assessment Data", DT::dataTableOutput("table"), width = 12))
+             box(title = "Pittsburgh Sheriff Sales Properties ", DT::dataTableOutput("table"), width = 12))
    )
  )
  )
