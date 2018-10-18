@@ -154,9 +154,9 @@ body <- dashboardBody(tabItems(
   # names of boxes
   tabItem("plot",
           fluidRow(
-            infoBoxOutput("avgmarket"),
-             infoBoxOutput("avgprice"),
-             infoBoxOutput("totaltaxland")
+            infoBoxOutput("attorney"),
+             infoBoxOutput("avgtaxes"),
+             infoBoxOutput("zipcode")
            ),
            # names of the plot tabs
            fluidRow(
@@ -247,24 +247,24 @@ body <- dashboardBody(tabItems(
    output$table <- DT::renderDataTable({
      subset(propInput(), select = c(DocketNumber, SaleType, AttorneyName, Plaintiff, Defendant, SaleDate, Address, CostsTaxes))
    })
+
    # Average current market value box
-   output$avgmarket <- renderInfoBox({
+   output$attorney <- renderInfoBox({
      proper <- propInput()
-     num <- round(mean(sale.load$market_value, na.rm = T), 0)
-     # When you're dealing with values in the thousands wrapping your value in prettyNum() will give you a nice thousands seperator
-     valueBox(subtitle = "Average Market Value", value = num, icon = icon("usd"), color = "red")
+     name <- names(sort(table(sale.load$AttorneyName), decreasing = TRUE))
+     valueBox(subtitle = "Is the most common Attorney", value = name,  color = "green")
    })
    # Average sale price box
-   output$avgprice <- renderValueBox({
+   output$avgtaxes <- renderValueBox({
      proper <- propInput()
-     num <- round(mean(sale.load$sale_price, na.rm = T), 0)
-     valueBox(subtitle = "Average Sale Price", value = num, icon = icon("credit-card"), color = "blue")
+     nums <- prettyNum(round(mean(sale.load$CostsTaxes, na.rm = T), 0))
+     valueBox(subtitle = "Average Taxes Owed ", value = nums, icon = icon("fa fa-user-circle-o"), color = "red")
    })
    # Total Taxable Land box
-   output$totaltaxland <- renderValueBox({
+   output$zipcode <- renderValueBox({
      proper <- propInput()
-     num <- sum(sale.load$taxable_land, na.rm = T)
-     valueBox(subtitle = "Total Taxable Land", value = num, icon = icon("thumbs-up"), color = "purple")
+     name <- names(sort(table(sale.load$ZIPCode), decreasing = TRUE))
+     valueBox(subtitle = "Is the most common Zipcode", value = name, icon = icon("thumbs-up"), color = "purple")
    })
  }
  # Run the application
