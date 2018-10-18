@@ -1,5 +1,3 @@
-
-
 # # Upload packages
 # library(rgdal)
 # require(leaflet)
@@ -78,21 +76,18 @@ library(readr)
 library(grid)
 library(scales)
 
-
-# Upload Philadelphia property assessment data from Opendataphilly
-# Many fields were removed to decrease data upload
-# Data can be found here: https://www.phila.gov/property/data/
-# There were originally 580,919 rows of data. I used a random number generator to get 2000 rows.
-# It now runs faster.
-# link to shinyapp.io https://assandoval.shinyapps.io/Project1-ASandoval/
 sale.upload <- read.csv ("sales_2.csv")
 property.load <- read.csv ("projectdata_7.csv")
 
 sale.load <- sale.upload %>%
-  mutate( 
+  mutate(
     SaleDate = as.POSIXct(SaleDate),
     ZIPCode = str_replace_all(ZIPCode, '"', ""),
-    AttorneyName = str_replace_all(AttorneyName, '"', ""))
+    AttorneyName = str_replace_all(AttorneyName, '"', ""),
+    ReadyForSale = case_when(
+      ReadyForSale %in% c("yes", "yes.no", TRUE) ~ "Yes",
+      ReadyForSale %in% c("no", "no.no", FALSE) ~ "No")
+    )
 
 pdf(NULL)
 
@@ -103,8 +98,7 @@ header <- dashboardHeader(title = "Pittsburgh Properties",
                                          from = "Mayor Bill Peduto",
                                          message = HTML("We need to increase the tax base!"),
                                          icon = icon("exclamation-circle"))
-                          )
-)
+                                       ))
 
 sidebar <- dashboardSidebar(
   # bars on the side
@@ -120,15 +114,15 @@ sidebar <- dashboardSidebar(
                 multiple = TRUE,
                 selectize = TRUE,
                 selected = c("Mortgage Foreclosure", "Municipal Lien", "Other Real Estate")),
-    
+
     # Date Select
     dateRangeInput("dateSelect",
-                   "Sheriff Sale Auction Date:", 
-                   start = Sys.Date()-38, end = Sys.Date()-7, 
-                   min = "2001-01-01", max = Sys.Date()-7, 
+                   "Sheriff Sale Auction Date:",
+                   start = Sys.Date()-38, end = Sys.Date()-7,
+                   min = "2001-01-01", max = Sys.Date()-7,
                    format = "yyyy-mm-dd", startview = "month", weekstart = 0,
                    language = "en", separator = " to ", width = NULL),
-    
+
    # Select Amount Owed
     sliderInput("taxesSelect",
                 "Outstanding Taxes Owed:",
@@ -136,21 +130,19 @@ sidebar <- dashboardSidebar(
                 max = max(sale.load$CostsTaxes, na.rm = T),
                 value = c(min(sale.load$CostsTaxes, na.rm = T), max(sale.load$CostsTaxes, na.rm = T)),
                 step = 5000),
-   
+
     # Select Ready for Auction
-   selectizeInput("readySelect", 
-                  "Is the Property Ready for Auction?", 
-                  choices = c("TRUE", "FALSE"), 
+   selectizeInput("readySelect",
+                  "Is the Property Ready for Auction?",
+                  choices = c("Yes", "No"),
                   multiple = FALSE,
-                  selected = "TRUE"),
-   
+                  selected = "Yes"),
+
    # Download Data Buttion
    tabItem("table",
            inputPanel(
              downloadButton("downloadData","Download Sheriff Sale Data")))
-  )
-)
-
+  ))
 
 body <- dashboardBody(tabItems(
   # names of boxes
@@ -158,24 +150,20 @@ body <- dashboardBody(tabItems(
           fluidRow(
             infoBoxOutput("attorney"),
              infoBoxOutput("avgtaxes"),
-             infoBoxOutput("zipcode")
-           ),
+             infoBoxOutput("zipcode")),
+          
            # names of the plot tabs
            fluidRow(
              tabBox(title = "Plot", width = 12,
                     tabPanel("Property Change of Value", plotlyOutput("plot_value")),
-                    tabPanel("Sum of taxes owed by Zip Code", plotlyOutput("plot_properties")))
-                    # tabPanel("Purchases by Year", plotlyOutput("plot_years")))
-           )
-   ),
+                    tabPanel("Sum of taxes owed by Zip Code", plotlyOutput("plot_properties"))))
+          ),
+  
    # Table name
    tabItem("table",
            fluidPage(
-             box(title = "Pittsburgh Sheriff Sales Properties ", DT::dataTableOutput("table"), width = 12))
-   )
- )
- )
-
+             box(title = "Pittsburgh Sheriff Sales Properties ", DT::dataTableOutput("table"), width = 12)))
+ ))
 
  ui <- dashboardPage(header, sidebar, body)
 
@@ -184,28 +172,21 @@ body <- dashboardBody(tabItems(
    propInput <- reactive({
      property <- sale.load  %>%
 
-       # Slider Filter
-      filter(SaleDate >= input$dateSelect[1] & SaleDate <= input$dateSelect[2])
+    # Slider Filter
+    filter(CostsTaxes >= input$taxesSelect[1] & CostsTaxes <= input$taxesSelect[2])
 
      # Category Filter
-     if (length(input$categorySelect) > 0 ) {
+    if (length(input$categorySelect) > 0 ) {
        property <- subset(property, SaleType %in% input$categorySelect)
      }
-     # Is there a bathroom inside?
-     if (length(input$bathroomSelect) > 0 ) {
-       property <- subset(property, number_of_bathrooms %in% input$bathroomSelect)
-     }
-     # Select Story
-     if (length(input$storySelect) > 0 ) {
-       property <- subset(property, number_stories %in% input$storySelect)
+     # Property ready for sale filter?
+    if (length(input$readySelect) > 0 ) {
+       property <- subset(property, ReadyForSale %in% input$readySelect)
     }
-     return(property)
-   })
-   # Reactive melted data
-   mInput <- reactive({
-     property <- propInput()
+    return(property)
    })
    
+
    # Plot 1-  Counts of Properties by Sale Tpes
    output$plot_value <- renderPlotly({
      property <- propInput()
@@ -215,11 +196,11 @@ body <- dashboardBody(tabItems(
        geom_bar(position = "stack") +
        guides(fill = FALSE) +
        scale_y_continuous(name = "Count of Properties") +
-       theme(axis.text.x = element_text(angle = 15, 
-                                        vjust = 1, 
+       theme(axis.text.x = element_text(angle = 15,
+                                        vjust = 1,
                                         hjust = 1))
-       
    })
+   
    # Plot 2- Plot showing taxes owed by zip code
    output$plot_properties <- renderPlotly({
      property <- propInput ()
@@ -228,11 +209,11 @@ body <- dashboardBody(tabItems(
                 y = round (CostsTaxes, 0), na.rm = T )) +
        geom_col (position = position_dodge(width = 1)) +
        guides (fill = FALSE) +
-       theme(axis.text.x = element_text(angle = 30, 
+       theme(axis.text.x = element_text(angle = 30,
                                         hjust = 1),
              axis.text = element_text(size = rel(0.5))) +
        scale_y_continuous (name = "Sum of Taxes Owed") +
-       scale_x_discrete (name = "Zip Code") 
+       scale_x_discrete (name = "Zip Code")
    })
 
    # Data table of Assessment
@@ -244,19 +225,21 @@ body <- dashboardBody(tabItems(
    output$attorney <- renderInfoBox({
      proper <- propInput()
      name <- names(sort(table(sale.load$AttorneyName), decreasing = TRUE))
-     valueBox(subtitle = "Is the most common Attorney", value = name, icon = icon("scale"),  color = "green")
+     valueBox(subtitle = "Is the most common Attorney", value = name, icon = icon("briefcase"),  color = "green")
    })
+   
    # Average sale price box
    output$avgtaxes <- renderValueBox({
      proper <- propInput()
      nums <- prettyNum(round(mean(sale.load$CostsTaxes, na.rm = T), 0))
      valueBox(subtitle = "Average Taxes Owed ", value = nums, icon = icon("usd"), color = "red")
    })
+   
    # Total Taxable Land box
    output$zipcode <- renderValueBox({
      proper <- propInput()
      name <- names(sort(table(sale.load$ZIPCode), decreasing = TRUE))
-     valueBox(subtitle = "This Zipcode has the most Sheriff Sales", value = name, icon("fa fa-user-circle-o"), color = "blue")
+     valueBox(subtitle = "This Zipcode has the most Sheriff Sales", value = name, icon("home"), color = "blue")
    })
  }
  # Run the application
