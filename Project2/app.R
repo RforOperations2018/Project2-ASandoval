@@ -75,7 +75,7 @@ library(shinythemes)
 library(stringr)
 library(shinydashboard)
 library(readr)
-
+library(grid)
 library(scales)
 
 
@@ -91,7 +91,8 @@ property.load <- read.csv ("projectdata_7.csv")
 sale.load <- sale.upload %>%
   mutate( 
     SaleDate = as.POSIXct(SaleDate),
-    ZIPCode = str_replace_all(ZIPCode, '"', ""))
+    ZIPCode = str_replace_all(ZIPCode, '"', ""),
+    AttorneyName = str_replace_all(AttorneyName, '"', ""))
 
 pdf(NULL)
 
@@ -225,11 +226,13 @@ body <- dashboardBody(tabItems(
      ggplot (data = sale.load,
             aes (x = ZIPCode,
                 y = round (CostsTaxes, 0), na.rm = T )) +
-       geom_col (position = position_dodge(width = 0.9)) +
+       geom_col (position = position_dodge(width = 1)) +
        guides (fill = FALSE) +
+       theme(axis.text.x = element_text(angle = 30, 
+                                        hjust = 1),
+             axis.text = element_text(size = rel(0.5))) +
        scale_y_continuous (name = "Sum of Taxes Owed") +
-       scale_x_discrete (name = "Zip Code") +
-       coord_flip ()
+       scale_x_discrete (name = "Zip Code") 
    })
 
    # Data table of Assessment
@@ -253,7 +256,7 @@ body <- dashboardBody(tabItems(
    output$zipcode <- renderValueBox({
      proper <- propInput()
      name <- names(sort(table(sale.load$ZIPCode), decreasing = TRUE))
-     valueBox(subtitle = "Is the most common Zipcode", value = name, icon("fa fa-user-circle-o"), color = "blue")
+     valueBox(subtitle = "This Zipcode has the most Sheriff Sales", value = name, icon("fa fa-user-circle-o"), color = "blue")
    })
  }
  # Run the application
