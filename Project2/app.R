@@ -8,17 +8,43 @@ library(shinydashboard)
 library(readr)
 library(grid)
 library(scales)
-require(leaflet)
-require(leaflet.extras)
-require(readxl)
+library(leaflet)
+library(leaflet.extras)
+library(readxl)
 
 sale.upload <- read.csv ("sales_2.csv")
 zipcodes <- readOGR("County_Zip_Code.geojson")
 
+
+ckanSQL <- function(url) {
+  # Make the Request
+  r <- RETRY("GET", URLencode(url))
+  # Extract Content
+  c <- content(r, "text")
+  # Basic gsub to make NA's consistent with R
+  json <- gsub("NaN|''", 'NA', c, perl = TRUE)
+  # Create Dataframe
+  data.frame(jsonlite::fromJSON(json)$result$records)
+}
+
+
+# Unique values for Resource Field
+ckanUniques <- function(field, id) {
+  url <- paste0("https://data.wprdc.org/api/3/action/datastore_search_sql?sql=SELECT%20DISTINCT(%22", field, "%22)%20from%20%22", id, "%22")
+  c(ckanSQL(URLencode(url)))
+}
+
+category <- sort(ckanUniques("4af05575-052d-40ff-9311-d578319e810a", "SaleType")$SaleType)
+taxes <- sort(ckanUniques("4af05575-052d-40ff-9311-d578319e810a", "CostsTaxes")$CostsTaxes)
+ready <- sort(ckanUniques("4af05575-052d-40ff-9311-d578319e810a", "ReadyForSale")$ReadyForSale)
+  
+  
 pdf(NULL)
 
 sale.load <- sale.upload %>%
   mutate(
+    City = case_when(
+      City %in% c("PITTSBURGH", "PITSBURGH", "PITTBURGH", "PITTSBIURGH", "PITTSBRGH", "PITTSBSURGH") ~ "Pittsburgh"),
     SaleDate = as.POSIXct(SaleDate),
     ZIPCode = str_replace_all(ZIPCode, '"', ""),
     AttorneyName = str_replace_all(AttorneyName, '"', ""),
@@ -46,7 +72,7 @@ sidebar <- dashboardSidebar(
     # Category Select
     selectInput("categorySelect",
                 "Types of Sheriff Sale's:",
-                choices = sort(unique(sale.load$SaleType)),
+                choices = category,
                 multiple = TRUE,
                 selectize = TRUE,
                 selected = c("Mortgage Foreclosure", "Municipal Lien", "Other Real Estate")),
@@ -62,9 +88,9 @@ sidebar <- dashboardSidebar(
    # Select Amount Owed
    sliderInput("taxesSelect",
                 "Outstanding Taxes Owed:",
-                min = min(sale.load$CostsTaxes, na.rm = T),
-                max = max(sale.load$CostsTaxes, na.rm = T),
-                value = c(min(sale.load$CostsTaxes, na.rm = T), max(sale.load$CostsTaxes, na.rm = T)),
+                min = min(taxes, na.rm = T),
+                max = max(taxes, na.rm = T),
+                value = c(min(taxes, na.rm = T), max(taxes, na.rm = T)),
                 step = 5000),
 
     # Select Ready for Auction
@@ -106,28 +132,78 @@ body <- dashboardBody(tabItems(
  ui <- dashboardPage(header, sidebar, body)
 
  # Define server logic
- server <- function(input, output) {
-   propInput <- reactive({
-     property <- sale.load  %>%
-
-    # Slider Filter
-    filter(CostsTaxes >= input$taxesSelect[1] & CostsTaxes <= input$taxesSelect[2])
-
-     # Category Filter
-    if (length(input$categorySelect) > 0 ) {
-       property <- subset(property, SaleType %in% input$categorySelect)
-     }
-     # Property ready for sale filter?
-    if (length(input$readySelect) > 0 ) {
-       property <- subset(property, ReadyForSale %in% input$readySelect)
-    }
-    return(property)
-   })
-   #Reactive data
-   mInput <- reactive({
-     property <- propInput()
-   })
+ server <- function(input, output) 
    
+   # Creating filtered pitt 311 data
+   sheriffsales <- reactive({
+       # Build API Query with proper encodes
+       # If no categorySelect input selected
+       if (length(input$categorySelect) == 0 ) {
+         url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%224af05575-052d-40ff-9311-d578319e810a%22%20WHERE%20%22SaleDate%22%20%3E=%20%27", 
+                       input$dateSelect[1], "%27%20AND%20%22SaleDate%22%20%3C=%20%27", input$dateSelect[2], 
+                       "%27%20AND%20%22ReadyForSale%22%20=%20%27", input$readySelect, "%27", "%27%20AND%20%22CostsTaxes%22%20=%20%27",input$taxesSelect, "%27")
+         
+         url <- gsub(pattern = " ", replacement = "%20", x = url)
+         
+         # If one categorySelect input selected  
+       } else if (length(input$categorySelect) == 1) {
+         url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%224af05575-052d-40ff-9311-d578319e810a%22%20WHERE%20%22SaleDate%22%20%3E=%20%27", 
+                       input$dateSelect[1], "%27%20AND%20%22SaleDate%22%20%3C=%20%27", input$dateSelect[2], 
+                       "%27%20AND%20%22ReadyForSale%22%20=%20%27", input$readySelect, "%27", "%27%20AND%20%22CostsTaxes%22%20=%20%27",input$taxesSelect, "%27", 
+                       "%27%20AND%20%22SaleType%22%20=%20%27", input$categorySelect, "%27")
+         
+         url <- gsub(pattern = " ", replacement = "%20", x = url)
+         
+         # Multiple source_select inputs selected
+       } else {
+         primary_desc_q <- paste0(input$source_select, collapse = "%27%20OR%20%22REQUEST_ORIGIN%22%20=%20%27")
+         url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%2276fda9d0-69be-4dd5-8108-0de7907fc5a4%22%20WHERE%20%22CREATED_ON%22%20%3E=%20%27", 
+                       input$date_select[1], "%27%20AND%20%22CREATED_ON%22%20%3C=%20%27", input$date_select[2], 
+                       "%27%20AND%20%22NEIGHBORHOOD%22%20=%20%27", input$nbhd_select, 
+                       "%27%20AND%20%22REQUEST_ORIGIN%22%20=%20%27", primary_desc_q, "%27")
+         url <- gsub(pattern = " ", replacement = "%20", x = url)}
+       
+       data <- ckanSQL(url)
+       
+       # Load and clean data
+       if (is.null(data[1,1])){
+         alert("There is no data available for your selected inputs. Please reset filters and select different inputs.")
+         # Now, if you wanna be fancy! You could have put in an updateInputs or autmatically click your button with shinyjs()
+       } else {
+         data <- data %>%
+           mutate(DATE = as.Date(CREATED_ON),
+                  STATUS = ifelse(STATUS == 1, "Closed", "Open"))
+         
+         return(data) 
+       }
+       
+     })
+   
+   
+   
+   
+   {
+   # propInput <- reactive({
+   #   property <- sale.load  %>%
+   # 
+   #  # Slider Filter
+   #  filter(CostsTaxes >= input$taxesSelect[1] & CostsTaxes <= input$taxesSelect[2])
+   # 
+   #   # Category Filter
+   #  if (length(input$categorySelect) > 0 ) {
+   #     property <- subset(property, SaleType %in% input$categorySelect)
+   #   }
+   #   # Property ready for sale filter?
+   #  if (length(input$readySelect) > 0 ) {
+   #     property <- subset(property, ReadyForSale %in% input$readySelect)
+   #  }
+   #  return(property)
+   # })
+   # #Reactive data
+   # mInput <- reactive({
+   #   property <- propInput()
+   # })
+
    #map
    output$map <- renderLeaflet({
      # Plot map 
@@ -138,25 +214,25 @@ body <- dashboardBody(tabItems(
        addTiles(options = providerTileOptions(noWrap = TRUE), group = "Default") %>%
        addProviderTiles("Esri.WorldTerrain", options = providerTileOptions(noWrap = TRUE), group = "Terrain") %>%
        
+       # Set View
+       setView(lat = 40.44, lng = -79.95, zoom = 11.8) %>%
+       
+       # Add Pittsburgh Zip Codes
+       addPolygons(data = zipcodes, color = "#000000", label = ~ZIP, fillOpacity = 0.00) %>%
+       
        # Add Layers control
        addLayersControl(
          baseGroups = c("Default", "Terrain"),
          options = layersControlOptions(collapsed = FALSE)
        ) %>%
-       
-       # Add Philly Neighborhoods
-       addPolygons(data = zipcodes, color = "#000000", label = ~ZIP, fillOpacity = 0.00) %>%
-       
+
+       # Add Sheriff Sale Points
        addAwesomeMarkers(data = propInput(),
                          lat = ~latitude,
-                         lng = ~longitude, 
+                         lng = ~longitude,
                          label = ~SaleType,
-                         clusterOptions = markerClusterOptions()) %>%
-
-     # Set View
-     setView(lat = 40.44, lng = -79.95, zoom = 11.8)
-     })
-   
+                         clusterOptions = markerClusterOptions())
+   })
      
    # Plot 1-  Counts of Properties by Sale Types
    output$plot_types <- renderPlotly({
