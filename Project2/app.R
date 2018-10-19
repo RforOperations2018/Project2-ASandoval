@@ -12,7 +12,7 @@ library(leaflet)
 library(leaflet.extras)
 library(readxl)
 
-sale.upload <- read.csv ("sales_2.csv")
+#sale.upload <- read.csv ("sales_2.csv")
 zipcodes <- readOGR("County_Zip_Code.geojson")
 
 
@@ -34,9 +34,9 @@ ckanUniques <- function(field, id) {
   c(ckanSQL(URLencode(url)))
 }
 
-category <- sort(ckanUniques("4af05575-052d-40ff-9311-d578319e810a", "SaleType")$SaleType)
-taxes <- sort(ckanUniques("4af05575-052d-40ff-9311-d578319e810a", "CostsTaxes")$CostsTaxes)
-ready <- sort(ckanUniques("4af05575-052d-40ff-9311-d578319e810a", "ReadyForSale")$ReadyForSale)
+category <- sort(ckanUniques("SaleType", "4af05575-052d-40ff-9311-d578319e810a")$SaleType)
+taxes <- sort(ckanUniques("CostsTaxes", "4af05575-052d-40ff-9311-d578319e810a")$CostsTaxes)
+ready <- sort(ckanUniques("ReadyForSale", "4af05575-052d-40ff-9311-d578319e810a")$ReadyForSale)
   
   
 #pdf(NULL)
@@ -64,7 +64,7 @@ sidebar <- dashboardSidebar(
                 choices = category,
                 multiple = TRUE,
                 selectize = TRUE,
-                selected = c("Mortgage Foreclosure", "Municipal Lien", "Other Real Estate")),
+                selected = "Mortgage Foreclosure"),
 
    # Date Select
     dateRangeInput("dateSelect",
@@ -77,9 +77,9 @@ sidebar <- dashboardSidebar(
    # Select Amount Owed
    sliderInput("taxesSelect",
                 "Outstanding Taxes Owed:",
-                min = min(taxes, na.rm = T),
-                max = max(taxes, na.rm = T),
-                value = c(min(taxes, na.rm = T), max(taxes, na.rm = T)),
+                min = min(taxes),
+                max = max(taxes),
+                value = c(min(taxes), max(taxes)),
                 step = 5000),
 
     # Select Ready for Auction
@@ -124,7 +124,7 @@ body <- dashboardBody(tabItems(
  server <- function(input, output, session) {
    
    # Creating filtered sheriff sale data
-   sheriffsales <- reactive({
+   propInput <- reactive({
        # Build API Query with proper encodes
        # If no categorySelect input selected
        if (length(input$categorySelect) == 0 ) {
@@ -133,6 +133,7 @@ body <- dashboardBody(tabItems(
                        "%27%20AND%20%22ReadyForSale%22%20=%20%27", input$readySelect, "%27", "%27%20AND%20%22CostsTaxes%22%20=%20%27",input$taxesSelect, "%27")
          
          url <- gsub(pattern = " ", replacement = "%20", x = url)
+       
          
          # If one categorySelect input selected  
        } else if (length(input$categorySelect) == 1) {
@@ -143,6 +144,7 @@ body <- dashboardBody(tabItems(
          
          url <- gsub(pattern = " ", replacement = "%20", x = url)
          
+         print(url)
          # Multiple categorySelect inputs selected
        } else {
          prim <- paste0(input$categorySelect, collapse = "%27%20OR%20%22SaleType%22%20=%20%27")
@@ -159,7 +161,7 @@ body <- dashboardBody(tabItems(
          alert("There is no data available for your selected inputs. Please reset filters and select different inputs.")
          # Now, if you wanna be fancy! You could have put in an updateInputs or autmatically click your button with shinyjs()
        } else {
-         sale.load <- sale.upload %>%
+         sale.load <- sale.load %>%
            mutate(
              City = case_when(
                City %in% c("PITTSBURGH", "PITSBURGH", "PITTBURGH", "PITTSBIURGH", "PITTSBRGH", "PITTSBSURGH") ~ "Pittsburgh"),
