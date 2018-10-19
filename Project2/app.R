@@ -133,9 +133,6 @@ body <- dashboardBody(tabItems(
      # Plot map 
      leaflet() %>%
        
-       # Add Philly Neighborhoods
-       addPolygons(data = zipcodes, color = "#000000", label = ~NAME, fillOpacity = 0.00) %>%
-       
        # Add Basemaps
        addProviderTiles(providers$OpenMapSurfer.Grayscale, options = providerTileOptions(noWrap = TRUE)) %>%
        addTiles(options = providerTileOptions(noWrap = TRUE), group = "Default") %>%
@@ -145,8 +142,17 @@ body <- dashboardBody(tabItems(
        addLayersControl(
          baseGroups = c("Default", "Terrain"),
          options = layersControlOptions(collapsed = FALSE)
-       )%>%
-     
+       ) %>%
+       
+       # Add Philly Neighborhoods
+       addPolygons(data = zipcodes, color = "#000000", label = ~ZIP, fillOpacity = 0.00) %>%
+       
+       addAwesomeMarkers(data = propInput(),
+                         lat = ~latitude,
+                         lng = ~longitude, 
+                         label = ~SaleType,
+                         clusterOptions = markerClusterOptions()) %>%
+
      # Set View
      setView(lat = 40.44, lng = -79.95, zoom = 11.8)
      })
