@@ -8,8 +8,12 @@ library(shinydashboard)
 library(readr)
 library(grid)
 library(scales)
+require(leaflet)
+require(leaflet.extras)
+require(readxl)
 
 sale.upload <- read.csv ("sales_2.csv")
+pdf(NULL)
 
 sale.load <- sale.upload %>%
   mutate(
@@ -20,9 +24,6 @@ sale.load <- sale.upload %>%
       ReadyForSale %in% c("yes", "yes.no", TRUE) ~ "Yes",
       ReadyForSale %in% c("no", "no.no", FALSE) ~ "No")
     )
-
-pdf(NULL)
-
 
 header <- dashboardHeader(title = "Pittsburgh Properties",
                           dropdownMenu(type = "messages",
@@ -37,6 +38,7 @@ sidebar <- dashboardSidebar(
   sidebarMenu(
     id = "tabs",
     menuItem("Plot", icon = icon("bar-chart"), tabName = "plot"),
+    menuItem("View Map", icon = icon("map"), tabName = "map"),
     menuItem("Download Data", icon = icon("download"), tabName = "table"),
 
     # Category Select
@@ -47,7 +49,7 @@ sidebar <- dashboardSidebar(
                 selectize = TRUE,
                 selected = c("Mortgage Foreclosure", "Municipal Lien", "Other Real Estate")),
 
-    # Date Select
+   # Date Select
     dateRangeInput("dateSelect",
                    "Sheriff Sale Auction Date:",
                    start = Sys.Date()-38, end = Sys.Date()-7,
@@ -56,7 +58,7 @@ sidebar <- dashboardSidebar(
                    language = "en", separator = " to ", width = NULL),
 
    # Select Amount Owed
-    sliderInput("taxesSelect",
+   sliderInput("taxesSelect",
                 "Outstanding Taxes Owed:",
                 min = min(sale.load$CostsTaxes, na.rm = T),
                 max = max(sale.load$CostsTaxes, na.rm = T),
@@ -69,8 +71,6 @@ sidebar <- dashboardSidebar(
                   choices = c("Yes", "No"),
                   multiple = FALSE,
                   selected = "Yes")
-
-
   ))
 
 body <- dashboardBody(tabItems(
@@ -84,8 +84,13 @@ body <- dashboardBody(tabItems(
            # names of the plot tabs
            fluidRow(
              tabBox(title = "Plot", width = 12,
-                    tabPanel("Property Change of Value", plotlyOutput("plot_types")),
+                    tabPanel("Types of Sheriff Sales", plotlyOutput("plot_types")),
                     tabPanel("Sum of taxes owed by Zip Code", plotlyOutput("plot_taxes"))))),
+  # View Map
+  tabItem("map",
+          fluidRow(
+            leafletOutput("map"),
+            p())),
   
   # Download Data
   tabItem("table",
@@ -94,10 +99,6 @@ body <- dashboardBody(tabItems(
           ),
           fluidPage(
             box(title = "Pittsburgh Sheriff Sales Properties", DT::dataTableOutput("table"), width = 12)))
-
-  
-  
-  
  ))
 
  ui <- dashboardPage(header, sidebar, body)
@@ -125,15 +126,43 @@ body <- dashboardBody(tabItems(
      property <- propInput()
    })
    
+   #map
+   output$map <- renderLeaflet({
+     # Plot map 
+     leaflet() %>%
+       
+       # Add Philly Neighborhoods
+       addPolygons(data = hoods, color = "#1ab2ff", label = ~mapname, fillOpacity = 0.00) %>%
+       
+       # Add Basemaps
+       addProviderTiles(providers$OpenMapSurfer.Grayscale, options = providerTileOptions(noWrap = TRUE)) %>%
+       addTiles(options = providerTileOptions(noWrap = TRUE), group = "Default") %>%
+       addProviderTiles("Esri.WorldTerrain", options = providerTileOptions(noWrap = TRUE), group = "Terrain") %>%
+       
+       # Add Layers control
+       addLayersControl(
+         baseGroups = c("Default", "Terrain"),
+         options = layersControlOptions(collapsed = FALSE)
+       )
+     })
+   
+   
+    
+   
+   
+   
+   
+   
+     
    # Plot 1-  Counts of Properties by Sale Types
    output$plot_types <- renderPlotly({
      property <- propInput()
-     ggplot(data = sale.load,
-            aes(x = SaleType,
-                fill = SaleStatus))  +
-       geom_bar(position = "stack") +
+     ggplot(data = property,
+            aes(x = CostsTaxes, color = SaleType))  +
+       geom_freqpoly(binwidth = 500) +
        guides(fill = FALSE) +
        scale_y_continuous(name = "Count of Properties") +
+       scale_x_continuous(name = "Taxes Owed") +
        theme(axis.text.x = element_text(angle = 15,
                                         vjust = 1,
                                         hjust = 1))
@@ -142,10 +171,10 @@ body <- dashboardBody(tabItems(
    # Plot 2- Plot showing taxes owed by zip code
    output$plot_taxes <- renderPlotly({
      property <- propInput ()
-     ggplot (data = sale.load,
+     ggplot (data = property,
             aes (x = ZIPCode,
                 y = round (CostsTaxes, 0), na.rm = T )) +
-       geom_col (position = position_dodge(width = 1)) +
+       geom_col (position = position_dodge(width = 0.9)) +
        guides (fill = FALSE) +
        theme(axis.text.x = element_text(angle = 30,
                                         hjust = 1),
@@ -159,21 +188,21 @@ body <- dashboardBody(tabItems(
      subset(propInput(), select = c(DocketNumber, SaleType, AttorneyName, Plaintiff, Defendant, SaleDate, Address, CostsTaxes))
    })
 
-   # Common Attorney
+   # Common Attorney infobox
    output$attorney <- renderInfoBox({
      proper <- propInput()
      name <- names(sort(table(sale.load$AttorneyName), decreasing = TRUE))
      valueBox(subtitle = "Is the most common Attorney", value = name, icon = icon("briefcase"),  color = "green")
    })
    
-   # Average Taxes Owed box
+   # Average Taxes Owed infobox
    output$avgtaxes <- renderValueBox({
      proper <- propInput()
      nums <- prettyNum(round(mean(sale.load$CostsTaxes, na.rm = T), 0))
      valueBox(subtitle = "Average Taxes Owed ", value = nums, icon = icon("usd"), color = "red")
    })
    
-   # Most in a zipcode
+   # Most in a zipcode infobox
    output$zipcode <- renderValueBox({
      proper <- propInput()
      name <- names(sort(table(sale.load$ZIPCode), decreasing = TRUE))
