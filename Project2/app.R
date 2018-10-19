@@ -13,6 +13,8 @@ require(leaflet.extras)
 require(readxl)
 
 sale.upload <- read.csv ("sales_2.csv")
+zipcodes <- readOGR("County_Zip_Code.geojson")
+
 pdf(NULL)
 
 sale.load <- sale.upload %>%
@@ -132,7 +134,7 @@ body <- dashboardBody(tabItems(
      leaflet() %>%
        
        # Add Philly Neighborhoods
-       addPolygons(data = hoods, color = "#1ab2ff", label = ~mapname, fillOpacity = 0.00) %>%
+       addPolygons(data = zipcodes, color = "#000000", label = ~NAME, fillOpacity = 0.00) %>%
        
        # Add Basemaps
        addProviderTiles(providers$OpenMapSurfer.Grayscale, options = providerTileOptions(noWrap = TRUE)) %>%
@@ -143,15 +145,11 @@ body <- dashboardBody(tabItems(
        addLayersControl(
          baseGroups = c("Default", "Terrain"),
          options = layersControlOptions(collapsed = FALSE)
-       )
+       )%>%
+     
+     # Set View
+     setView(lat = 40.44, lng = -79.95, zoom = 11.8)
      })
-   
-   
-    
-   
-   
-   
-   
    
      
    # Plot 1-  Counts of Properties by Sale Types
