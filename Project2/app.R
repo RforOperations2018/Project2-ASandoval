@@ -15,8 +15,8 @@ library(shinyjs)
 library(httr)
 library(jsonlite)
 library(plyr)
-library(shinyWidgets)
-library(wordcloud2)
+#library(shinyWidgets)
+#library(wordcloud2)
 library(htmltools)
 
 ckanSQL <- function(url) {
@@ -33,7 +33,7 @@ ckanSQL <- function(url) {
 
 # Unique values for Resource Field
 ckanUniques <- function(field, id) {
-  url <- paste0("https://data.wprdc.org/api/3/action/datastore_search_sql?sql=SELECT%20DISTINCT(%22", field, "%22)%20from%20%22", id, "%22")
+  url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20DISTINCT(%22", field, "%22)%20from%20%22", id, "%22")
   c(ckanSQL(URLencode(url)))
 }
 
@@ -67,7 +67,7 @@ sidebar <- dashboardSidebar(
                 choices = category,
                 multiple = TRUE,
                 selectize = TRUE,
-                selected = "Mortgage Foreclosure"),
+                selected = c("Mortgage Foreclosure", "Municipal Lien", "Other Real Estate", "Sci Fa sur Tax Lien")),
 
    # Date Select
     dateRangeInput("dateSelect",
@@ -76,7 +76,7 @@ sidebar <- dashboardSidebar(
                    min = "2001-01-01", max = Sys.Date()-7,
                    format = "yyyy-mm-dd", startview = "month", weekstart = 0,
                    language = "en", separator = " to ", width = NULL),
-
+   
    # Select Amount Owed
    sliderInput("taxesSelect",
                 "Outstanding Taxes Owed:",
@@ -90,7 +90,11 @@ sidebar <- dashboardSidebar(
                   "Is the Property Ready for Auction?",
                   choices = c("Yes", "No"),
                   multiple = FALSE,
-                  selected = "Yes")
+                  selected = "Yes"),
+   
+   # Reset button
+   actionButton("reset", "Reset Filters", icon = icon("refresh")),
+   actionButton("button", "Submit")
   ))
 
 body <- dashboardBody(tabItems(
@@ -124,109 +128,87 @@ body <- dashboardBody(tabItems(
  ui <- dashboardPage(header, sidebar, body)
 
  # Define server logic
- server <- function(input, output, session) {
+ server <- function(input, output, session=session) {
    
    # Creating filtered sheriff sale data
    propInput <- eventReactive(input$button, {
        # API Stuff
-     url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%224af05575-052d-40ff-9311-d578319e810a%22%20WHERE%20%22SaleDate%22%20%3E=%20%27",
-                   input$dateSelect[1], "%27%20AND%20%22SaleDate%22%3C%3D%27",
-                   input$dateSelect[2], "%27%20AND%20%22CostsTaxes%22%20%3E=%20%27", 
-                   input$taxesSelect[1], "%27%20AND%20%22CostsTaxes%22%20%3C=%20%27",
-                   input$taxesSelect[2], "%27%20AND%20%22SaleTyped%22%20IN%20%28%27", 
-                   gsub(" ", "%20",input$categorySelect[1]),"%27%2C%20%27", 
-                   gsub(" ", "%20",input$categorySelect[2]),"%27%2C%20%27", 
-                   gsub(" ", "%20",input$categorySelect[3]),"%27%2C%20%27", 
-                   gsub(" ", "%20",input$categorySelect[4]), "%27%29%20AND%20%22ReadyForSale%22%20IN%20%28%27",
-                   gsub(" ", "%20", input$readySelect[1]), "%27%2C%20%27", 
-                   gsub(" ", "%20", input$readySelect[2]), "%27%29")
+
+     url <- paste0("https://data.wprdc.org/api/3/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%224af05575-052d-40ff-9311-d578319e810a%22%20WHERE%20%22CostsTaxes%22%20%3E%3D%27", 
+                   input$taxesSelect[1],"%27%20AND%20%22CostsTaxes%22%20%3C%3d%27", input$taxesSelect[2], "%27%20AND%20%22SaleType%22%20IN%20%28%27",
+                   gsub(" ", "%20", input$categorySelect[1]), "%27%2C%20%27",
+                   gsub(" ", "%20", input$categorySelect[2]), "%27%2C%20%27",
+                   gsub(" ", "%20", input$categorySelect[3]), "%27%2C%20%27",
+                   gsub(" ", "%20", input$categorySelect[4]), "%27%29")
+# %29%20AND%20%22ReadyForSale%22%20IN%20%28%27",
+#                    gsub(" ", "%20", input$readySelect[1]), "%27%29")
+#                    
+                   # IN%20%28%27",
+                   # gsub(" ", "%20", input$readySelect), "%27%29")
+                   
      
-       # If no categorySelect input selected
-       # if (length(input$categorySelect) == 0 ) {
-       #   url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%224af05575-052d-40ff-9311-d578319e810a%22%20WHERE%20%22SaleDate%22%20%3E=%20%27", 
-       #                 input$dateSelect[1], "%27%20AND%20%22SaleDate%22%20%3C=%20%27", input$dateSelect[2], 
-       #                 "%27%20AND%20%22CostsTaxes%22%20%3E=%20%27", input$taxesSelect[1],"%27%20AND%20%22CostsTaxes%22%20%3C=%20%27",input$taxesSelect[2], "%27",
-       #                 "%27%20AND%20%22ReadyForSale%22%20=%20%27", input$readySelect, "%27")
-       #   
-       #   url <- gsub(pattern = " ", replacement = "%20", x = url)
-       # 
-       #   
-       #   # If one categorySelect input selected  
-       # } else if (length(input$categorySelect) == 1) {
-       #   url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%224af05575-052d-40ff-9311-d578319e810a%22%20WHERE%20%22SaleDate%22%20%3E=%20%27", 
-       #                 input$dateSelect[1], "%27%20AND%20%22SaleDate%22%20%3C=%20%27", input$dateSelect[2], 
-       #                 "%27%20AND%20%22CostsTaxes%22%20%3E=%20%27", input$taxesSelect[1],"%27%20AND%20%22CostsTaxes%22%20%3C=%20%27",input$taxesSelect[2], "%27",
-       #                 "%27%20AND%20%22ReadyForSale%22%20=%20%27", input$readySelect, "%27", 
-       #                 "%27%20AND%20%22SaleType%22%20=%20%27", input$categorySelect, "%27")
-       #   
-       #   url <- gsub(pattern = " ", replacement = "%20", x = url)
-       #   
-       # } else if (length(input$categorySelect) >  1) {
-       #   url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%224af05575-052d-40ff-9311-d578319e810a%22%20WHERE%20%22SaleDate%22%20%3E=%20%27", 
-       #                 input$dateSelect[1], "%27%20AND%20%22SaleDate%22%20%3C=%20%27", input$dateSelect[2], 
-       #                 "%27%20AND%20%22CostsTaxes%22%20%3E=%20%27", input$taxesSelect[1],"%27%20AND%20%22CostsTaxes%22%20%3C=%20%27",input$taxesSelect[2], "%27",
-       #                 "%27%20AND%20%22ReadyForSale%22%20=%20%27", input$readySelect, "%27", 
-       #                 "%27%20AND%20%22SaleType%22%20=%20%27", input$categorySelect, "%27")
-       #   
-       #   url <- gsub(pattern = " ", replacement = "%20", x = url)
-       #   print(url)
-       #   # Multiple categorySelect inputs selected
-       # } else {
-       #   prim <- paste0(input$categorySelect, collapse = "%27%20OR%20%22SaleType%22%20=%20%27")
-       #   url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%224af05575-052d-40ff-9311-d578319e810a%22%20WHERE%20%22SaleDate%22%20%3E=%20%27", 
-       #                 input$dateSelect[1], "%27%20AND%20%22SaleDate%22%20%3C=%20%27", input$dateSelect[2],
-       #                 "%27%20AND%20%22CostsTaxes%22%20%3E=%20%27", input$taxesSelect[1],"%27%20AND%20%22CostsTaxes%22%20%3C=%20%27",input$taxesSelect[2], "%27",
-       #                 "%27%20AND%20%22ReadyForSale%22%20=%20%27", input$readySelect, "%27", 
-       #                 "%27%20AND%20%22SaleType%22%20=%20%27", prim, "%27")
-       #   url <- gsub(pattern = " ", replacement = "%20", x = url)}
-       # 
-       # data <- ckanSQL(url)
-       # 
-       # # Load and clean data
-       # if (is.null(data[1,1])){
-       #   alert("Err, seems like there's no data for this.")
-       # 
-       # } else {
-         sale.load <- sale.load %>%
+     #dates don't work
+                   # "%27%20AND%22SaleDate%22%20%3E%3D%27", input$dateSelect[1], 
+                   # "%27%20AND%20%22SaleDate%22%20%3C%3d%27", input$dateSelect[2], "%27")
+                   
+                   
+
+     
+                   
+                   
+                   
+                  # "%27%20AND%22SaleDate%22%20%3E%3d%27", input$dateSelect[1], "%27")
+                   # input$dateSelect[1], "%27%20AND%20%22SaleDate%22%3C%3D%27",
+                   # input$dateSelect[2], "%27%29" )
+                   
+                   
+                   
+                   # "%27%20AND%20%22CostsTaxes%22%20%3E=%20%27", 
+                   # input$taxesSelect[1], "%27%20AND%20%22CostsTaxes%22%20%3C=%20%27",
+                   # input$taxesSelect[2], "%27%20AND%20%22SaleType%22%20IN%20%28%27", 
+                   # gsub(" ", "%20",input$categorySelect[1]),"%27%2C%20%27", 
+                   # gsub(" ", "%20",input$categorySelect[2]),"%27%2C%20%27", 
+                   # gsub(" ", "%20",input$categorySelect[3]), "%27%2C%20%27", 
+                   # gsub(" ", "%20",input$categorySelect[4]), "%27%29%20AND%20%22ReadyForSale%22%20=%20%28%27",
+                   # gsub(" ", "%20", input$readySelect[1]), "%27%29"
+                   # )
+    
+     
+
+  # "         %20%22SafetyAV%22%3E%3D%27", input$safetySelect[1],
+  #  "%27%20AND%20%22SafetyAV%22%3C%3D%27",input$safetySelect[2],
+  #  "%27%20AND%20%22FeelingsProvingGround%22%20IN%20%28%27",
+  #  gsub(" ", "%20", input$feelSelect[1]), "%27%2C%20%27",
+  #  gsub(" ", "%20", input$feelSelect[2]), "%27%2C%20%27",
+  #  gsub(" ", "%20", input$feelSelect[3]), "%27%2C%20%27",
+  #  gsub(" ", "%20", input$feelSelect[4]), "%27%2C%20%27",
+  #  gsub(" ", "%20", input$feelSelect[5]), "%27%29%20AND%20%22FamiliarityTechnoology%22%20IN%20%28%27",
+  #  gsub(" ", "%20", input$techSelect[1]), "%27%2C%20%27",
+  #  gsub(" ", "%20", input$techSelect[2]), "%27%2C%20%27",
+  #  gsub(" ", "%20", input$techSelect[3]), "%27%2C%20%27",
+  #  gsub(" ", "%20", input$techSelect[4]), "%27%2C%20%27",
+  #  gsub(" ", "%20", input$techSelect[5]),"%27%29"
+  #  )"
+  print(url)
+     
+     
+     
+         sale.load <- ckanSQL(url) %>%
            mutate(
+             AttorneyName = str_replace_all(AttorneyName, '"', ""),
+             SaleDate = as.POSIXct(SaleDate),
              City = case_when(
                City %in% c("PITTSBURGH", "PITSBURGH", "PITTBURGH", "PITTSBIURGH", "PITTSBRGH", "PITTSBSURGH") ~ "Pittsburgh"),
-             SaleDate = as.POSIXct(SaleDate),
              ZIPCode = str_replace_all(ZIPCode, '"', ""),
-             AttorneyName = str_replace_all(AttorneyName, '"', ""),
              ReadyForSale = case_when(
                ReadyForSale %in% c("yes", "yes.no", TRUE) ~ "Yes",
                ReadyForSale %in% c("no", "no.no", FALSE) ~ "No")
            )
          
          return(sale.load) 
-       #}
+
        # zipcodes <- readOGR("County_Zip_Code.geojson")
-       
-       
      })
-   
-  
-   # propInput <- reactive({
-   #   property <- sale.load  %>%
-   # 
-   #  # Slider Filter
-   #  filter(CostsTaxes >= input$taxesSelect[1] & CostsTaxes <= input$taxesSelect[2])
-   # 
-   #   # Category Filter
-   #  if (length(input$categorySelect) > 0 ) {
-   #     property <- subset(property, SaleType %in% input$categorySelect)
-   #   }
-   #   # Property ready for sale filter?
-   #  if (length(input$readySelect) > 0 ) {
-   #     property <- subset(property, ReadyForSale %in% input$readySelect)
-   #  }
-   #  return(property)
-   # })
-   # #Reactive data
-   # mInput <- reactive({
-   #   property <- propInput()
-   # })
 
    #map
    # output$map <- renderLeaflet({
@@ -261,7 +243,7 @@ body <- dashboardBody(tabItems(
    # Plot 1-  Counts of Properties by Sale Types
    output$plot_types <- renderPlotly({
      property <- propInput()
-     ggplot(data = property,
+     ggplotly( ggplot(data = property,
             aes(x = CostsTaxes, color = SaleType))  +
        geom_freqpoly(binwidth = 500) +
        guides(fill = FALSE) +
@@ -269,13 +251,17 @@ body <- dashboardBody(tabItems(
        scale_x_continuous(name = "Taxes Owed") +
        theme(axis.text.x = element_text(angle = 15,
                                         vjust = 1,
-                                        hjust = 1))
+                                        hjust = 1)))
    })
+   
    
    # Plot 2- Plot showing taxes owed by zip code
    output$plot_taxes <- renderPlotly({
+     
      property <- propInput ()
-     ggplot (data = property,
+     df <- property 
+     
+     ggplotly( ggplot (data = property,
             aes (x = ZIPCode,
                 y = round (CostsTaxes, 0), na.rm = T )) +
        geom_col (position = position_dodge(width = 0.9)) +
@@ -284,23 +270,15 @@ body <- dashboardBody(tabItems(
                                         hjust = 1),
              axis.text = element_text(size = rel(0.5))) +
        scale_y_continuous (name = "Sum of Taxes Owed") +
-       scale_x_discrete (name = "Zip Code")
+       scale_x_discrete (name = "Zip Code"))
    })
 
    # Data table of Assessment
    output$table <- DT::renderDataTable({
-     subset(propInput(), select = c(DocketNumber, SaleType, AttorneyName, Plaintiff, Defendant, SaleDate, Address, CostsTaxes))
+     df <- propInput()
+     subset(df, select = c(DocketNumber, SaleType, AttorneyName, Plaintiff, Defendant, SaleDate, Address, CostsTaxes))
    })
-   
-   # Updating the URL Bar
-   observe({
-     print(reactiveValuesToList(input))
-     session$doBookmark()
-   })
-   
-   onBookmarked(function(url) {
-     updateQueryString(url)
-   })
+  
    # Common Attorney infobox
    output$attorney <- renderInfoBox({
      proper <- propInput()
@@ -321,7 +299,7 @@ body <- dashboardBody(tabItems(
      name <- names(sort(table(propInput$ZIPCode), decreasing = TRUE))
      valueBox(subtitle = "This Zipcode has the most Sheriff Sales", value = name, icon("home"), color = "blue")
    })
-   
+
    # Make data downloadable and set default download name
    output$downloadData <- downloadHandler(
      filename = function() {
@@ -330,6 +308,15 @@ body <- dashboardBody(tabItems(
      content = function(file) {
        write.csv(propInput(), file)
      })
+   
+   # Reset Filter Data
+   observeEvent(input$reset, {
+     updateSelectInput(session, "categorySelect", selected = "Mortgage Foreclosure")
+     #updateDateRangeInput(session, "dateSelect", selected = c("Mostly familiar"))
+     updateSliderInput(session, "taxesSelect", value = c(min(taxes), max(taxes)))
+     updateSelectizeInput(session, "readySelect", selected = c("Yes"))
+     showNotification("You have successfully reset the filters! Make sure to hit the Submit again!", type = "message")
+   })
  }
  
  # Run the application
