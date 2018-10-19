@@ -139,7 +139,7 @@ body <- dashboardBody(tabItems(
                    gsub(" ", "%20", input$categorySelect[1]), "%27%2C%20%27",
                    gsub(" ", "%20", input$categorySelect[2]), "%27%2C%20%27",
                    gsub(" ", "%20", input$categorySelect[3]), "%27%2C%20%27",
-                   gsub(" ", "%20", input$categorySelect[4]), "%27%29")
+                   gsub(" ", "%20", input$categorySelect[4]), "%27%29%20AND%20%22City%22%20%3D%20%27PITTSBURGH%27")
 # %29%20AND%20%22ReadyForSale%22%20IN%20%28%27",
 #                    gsub(" ", "%20", input$readySelect[1]), "%27%29")
 #                    
@@ -204,8 +204,10 @@ body <- dashboardBody(tabItems(
                ReadyForSale %in% c("yes", "yes.no", TRUE) ~ "Yes",
                ReadyForSale %in% c("no", "no.no", FALSE) ~ "No")
            )
-         
+        
+         #sale.load   <- select(filter(sale.load, City == "Pittsburgh"))
          return(sale.load) 
+        
 
        # zipcodes <- readOGR("County_Zip_Code.geojson")
      })
@@ -258,13 +260,11 @@ body <- dashboardBody(tabItems(
    # Plot 2- Plot showing taxes owed by zip code
    output$plot_taxes <- renderPlotly({
      
-     property <- propInput ()
-     df <- property 
-     
+     property <- propInput()
      ggplotly( ggplot (data = property,
             aes (x = ZIPCode,
-                y = round (CostsTaxes, 0), na.rm = T )) +
-       geom_col (position = position_dodge(width = 0.9)) +
+                y = round (CostsTaxes, 0))) +
+       geom_col (position = position_dodge(width = 0.9), na.rm = TRUE) +
        guides (fill = FALSE) +
        theme(axis.text.x = element_text(angle = 30,
                                         hjust = 1),
