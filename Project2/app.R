@@ -140,11 +140,7 @@ body <- dashboardBody(tabItems(
                    gsub(" ", "%20", input$categorySelect[2]), "%27%2C%20%27",
                    gsub(" ", "%20", input$categorySelect[3]), "%27%2C%20%27",
                    gsub(" ", "%20", input$categorySelect[4]), "%27%29%20AND%20%22City%22%20%3D%20%27PITTSBURGH%27")
-# %29%20AND%20%22ReadyForSale%22%20IN%20%28%27",
-#                    gsub(" ", "%20", input$readySelect[1]), "%27%29")
-#                    
-                   # IN%20%28%27",
-                   # gsub(" ", "%20", input$readySelect), "%27%29")
+
                    
      
      #dates don't work
@@ -152,43 +148,9 @@ body <- dashboardBody(tabItems(
                    # "%27%20AND%20%22SaleDate%22%20%3C%3d%27", input$dateSelect[2], "%27")
                    
                    
-
-     
                    
-                   
-                   
-                  # "%27%20AND%22SaleDate%22%20%3E%3d%27", input$dateSelect[1], "%27")
-                   # input$dateSelect[1], "%27%20AND%20%22SaleDate%22%3C%3D%27",
-                   # input$dateSelect[2], "%27%29" )
-                   
-                   
-                   
-                   # "%27%20AND%20%22CostsTaxes%22%20%3E=%20%27", 
-                   # input$taxesSelect[1], "%27%20AND%20%22CostsTaxes%22%20%3C=%20%27",
-                   # input$taxesSelect[2], "%27%20AND%20%22SaleType%22%20IN%20%28%27", 
-                   # gsub(" ", "%20",input$categorySelect[1]),"%27%2C%20%27", 
-                   # gsub(" ", "%20",input$categorySelect[2]),"%27%2C%20%27", 
-                   # gsub(" ", "%20",input$categorySelect[3]), "%27%2C%20%27", 
-                   # gsub(" ", "%20",input$categorySelect[4]), "%27%29%20AND%20%22ReadyForSale%22%20=%20%28%27",
-                   # gsub(" ", "%20", input$readySelect[1]), "%27%29"
-                   # )
-    
-     
-
-  # "         %20%22SafetyAV%22%3E%3D%27", input$safetySelect[1],
-  #  "%27%20AND%20%22SafetyAV%22%3C%3D%27",input$safetySelect[2],
-  #  "%27%20AND%20%22FeelingsProvingGround%22%20IN%20%28%27",
-  #  gsub(" ", "%20", input$feelSelect[1]), "%27%2C%20%27",
-  #  gsub(" ", "%20", input$feelSelect[2]), "%27%2C%20%27",
-  #  gsub(" ", "%20", input$feelSelect[3]), "%27%2C%20%27",
-  #  gsub(" ", "%20", input$feelSelect[4]), "%27%2C%20%27",
-  #  gsub(" ", "%20", input$feelSelect[5]), "%27%29%20AND%20%22FamiliarityTechnoology%22%20IN%20%28%27",
-  #  gsub(" ", "%20", input$techSelect[1]), "%27%2C%20%27",
-  #  gsub(" ", "%20", input$techSelect[2]), "%27%2C%20%27",
-  #  gsub(" ", "%20", input$techSelect[3]), "%27%2C%20%27",
-  #  gsub(" ", "%20", input$techSelect[4]), "%27%2C%20%27",
-  #  gsub(" ", "%20", input$techSelect[5]),"%27%29"
-  #  )"
+              
+  
   print(url)
      
      
@@ -204,30 +166,29 @@ body <- dashboardBody(tabItems(
                ReadyForSale %in% c("yes", "yes.no", TRUE) ~ "Yes",
                ReadyForSale %in% c("no", "no.no", FALSE) ~ "No")
            )
-        
-         #sale.load   <- select(filter(sale.load, City == "Pittsburgh"))
+      
          return(sale.load) 
         
 
-       # zipcodes <- readOGR("County_Zip_Code.geojson")
+       zipcodes <- readOGR("County_Zip_Code.geojson")
      })
 
-   #map
+  # map
    # output$map <- renderLeaflet({
-   #   # Plot map 
+   #   # Plot map
    #   leaflet() %>%
-   #     
+   # 
    #     # Add Basemaps
    #     addProviderTiles(providers$OpenMapSurfer.Grayscale, options = providerTileOptions(noWrap = TRUE)) %>%
    #     addTiles(options = providerTileOptions(noWrap = TRUE), group = "Default") %>%
    #     addProviderTiles("Esri.WorldTerrain", options = providerTileOptions(noWrap = TRUE), group = "Terrain") %>%
-   #     
+   # 
    #     # Set View
    #     setView(lat = 40.44, lng = -79.95, zoom = 11.8) %>%
-   #     
+   # 
    #     # Add Pittsburgh Zip Codes
    #     addPolygons(data = zipcodes, color = "#000000", label = ~ZIP, fillOpacity = 0.00) %>%
-   #     
+   # 
    #     # Add Layers control
    #     addLayersControl(
    #       baseGroups = c("Default", "Terrain"),
@@ -241,7 +202,7 @@ body <- dashboardBody(tabItems(
    #                       label = ~SaleType,
    #                       clusterOptions = markerClusterOptions())
    # })
-     
+   #   
    # Plot 1-  Counts of Properties by Sale Types
    output$plot_types <- renderPlotly({
      property <- propInput()
@@ -282,21 +243,21 @@ body <- dashboardBody(tabItems(
    # Common Attorney infobox
    output$attorney <- renderInfoBox({
      proper <- propInput()
-     name <- names(sort(table(propInput$AttorneyName), decreasing = TRUE))
+     name <- names(sort(table(proper$AttorneyName), decreasing = TRUE))
      valueBox(subtitle = "Is the most common Attorney", value = name, icon = icon("briefcase"),  color = "green")
    })
    
    # Average Taxes Owed infobox
    output$avgtaxes <- renderValueBox({
      proper <- propInput()
-     nums <- prettyNum(round(mean(propInput$CostsTaxes, na.rm = T), 0))
+     nums <- prettyNum(round(mean(proper$CostsTaxes, na.rm = T), 0))
      valueBox(subtitle = "Average Taxes Owed ", value = nums, icon = icon("usd"), color = "red")
    })
    
    # Most in a zipcode infobox
    output$zipcode <- renderValueBox({
      proper <- propInput()
-     name <- names(sort(table(propInput$ZIPCode), decreasing = TRUE))
+     name <- names(sort(table(proper$ZIPCode), decreasing = TRUE))
      valueBox(subtitle = "This Zipcode has the most Sheriff Sales", value = name, icon("home"), color = "blue")
    })
 
