@@ -11,10 +11,13 @@ library(scales)
 library(leaflet)
 library(leaflet.extras)
 library(readxl)
-
-#sale.upload <- read.csv ("sales_2.csv")
-zipcodes <- readOGR("County_Zip_Code.geojson")
-
+library(shinyjs)
+library(httr)
+library(jsonlite)
+library(plyr)
+library(shinyWidgets)
+library(wordcloud2)
+library(htmltools)
 
 ckanSQL <- function(url) {
   # Make the Request
@@ -124,43 +127,66 @@ body <- dashboardBody(tabItems(
  server <- function(input, output, session) {
    
    # Creating filtered sheriff sale data
-   propInput <- reactive({
-       # Build API Query with proper encodes
+   propInput <- eventReactive(input$button, {
+       # API Stuff
+     url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%224af05575-052d-40ff-9311-d578319e810a%22%20WHERE%20%22SaleDate%22%20%3E=%20%27",
+                   input$dateSelect[1], "%27%20AND%20%22SaleDate%22%3C%3D%27",
+                   input$dateSelect[2], "%27%20AND%20%22CostsTaxes%22%20%3E=%20%27", 
+                   input$taxesSelect[1], "%27%20AND%20%22CostsTaxes%22%20%3C=%20%27",
+                   input$taxesSelect[2], "%27%20AND%20%22SaleTyped%22%20IN%20%28%27", 
+                   gsub(" ", "%20",input$categorySelect[1]),"%27%2C%20%27", 
+                   gsub(" ", "%20",input$categorySelect[2]),"%27%2C%20%27", 
+                   gsub(" ", "%20",input$categorySelect[3]),"%27%2C%20%27", 
+                   gsub(" ", "%20",input$categorySelect[4]), "%27%29%20AND%20%22ReadyForSale%22%20IN%20%28%27",
+                   gsub(" ", "%20", input$readySelect[1]), "%27%2C%20%27", 
+                   gsub(" ", "%20", input$readySelect[2]), "%27%29")
+     
        # If no categorySelect input selected
-       if (length(input$categorySelect) == 0 ) {
-         url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%224af05575-052d-40ff-9311-d578319e810a%22%20WHERE%20%22SaleDate%22%20%3E=%20%27", 
-                       input$dateSelect[1], "%27%20AND%20%22SaleDate%22%20%3C=%20%27", input$dateSelect[2], 
-                       "%27%20AND%20%22ReadyForSale%22%20=%20%27", input$readySelect, "%27", "%27%20AND%20%22CostsTaxes%22%20=%20%27",input$taxesSelect, "%27")
-         
-         url <- gsub(pattern = " ", replacement = "%20", x = url)
-       
-         
-         # If one categorySelect input selected  
-       } else if (length(input$categorySelect) == 1) {
-         url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%224af05575-052d-40ff-9311-d578319e810a%22%20WHERE%20%22SaleDate%22%20%3E=%20%27", 
-                       input$dateSelect[1], "%27%20AND%20%22SaleDate%22%20%3C=%20%27", input$dateSelect[2], 
-                       "%27%20AND%20%22ReadyForSale%22%20=%20%27", input$readySelect, "%27", "%27%20AND%20%22CostsTaxes%22%20=%20%27",input$taxesSelect, "%27", 
-                       "%27%20AND%20%22SaleType%22%20=%20%27", input$categorySelect, "%27")
-         
-         url <- gsub(pattern = " ", replacement = "%20", x = url)
-         
-         print(url)
-         # Multiple categorySelect inputs selected
-       } else {
-         prim <- paste0(input$categorySelect, collapse = "%27%20OR%20%22SaleType%22%20=%20%27")
-         url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%224af05575-052d-40ff-9311-d578319e810a%22%20WHERE%20%22SaleDate%22%20%3E=%20%27", 
-                       input$dateSelect[1], "%27%20AND%20%22SaleDate%22%20%3C=%20%27", input$dateSelect[2], 
-                       "%27%20AND%20%22ReadyForSale%22%20=%20%27", input$readySelect, "%27", "%27%20AND%20%22CostsTaxes%22%20=%20%27",input$taxesSelect, "%27",
-                       "%27%20AND%20%22SaleType%22%20=%20%27", prim, "%27")
-         url <- gsub(pattern = " ", replacement = "%20", x = url)}
-       
-       data <- ckanSQL(url)
-       
-       # Load and clean data
-       if (is.null(data[1,1])){
-         alert("There is no data available for your selected inputs. Please reset filters and select different inputs.")
-         # Now, if you wanna be fancy! You could have put in an updateInputs or autmatically click your button with shinyjs()
-       } else {
+       # if (length(input$categorySelect) == 0 ) {
+       #   url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%224af05575-052d-40ff-9311-d578319e810a%22%20WHERE%20%22SaleDate%22%20%3E=%20%27", 
+       #                 input$dateSelect[1], "%27%20AND%20%22SaleDate%22%20%3C=%20%27", input$dateSelect[2], 
+       #                 "%27%20AND%20%22CostsTaxes%22%20%3E=%20%27", input$taxesSelect[1],"%27%20AND%20%22CostsTaxes%22%20%3C=%20%27",input$taxesSelect[2], "%27",
+       #                 "%27%20AND%20%22ReadyForSale%22%20=%20%27", input$readySelect, "%27")
+       #   
+       #   url <- gsub(pattern = " ", replacement = "%20", x = url)
+       # 
+       #   
+       #   # If one categorySelect input selected  
+       # } else if (length(input$categorySelect) == 1) {
+       #   url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%224af05575-052d-40ff-9311-d578319e810a%22%20WHERE%20%22SaleDate%22%20%3E=%20%27", 
+       #                 input$dateSelect[1], "%27%20AND%20%22SaleDate%22%20%3C=%20%27", input$dateSelect[2], 
+       #                 "%27%20AND%20%22CostsTaxes%22%20%3E=%20%27", input$taxesSelect[1],"%27%20AND%20%22CostsTaxes%22%20%3C=%20%27",input$taxesSelect[2], "%27",
+       #                 "%27%20AND%20%22ReadyForSale%22%20=%20%27", input$readySelect, "%27", 
+       #                 "%27%20AND%20%22SaleType%22%20=%20%27", input$categorySelect, "%27")
+       #   
+       #   url <- gsub(pattern = " ", replacement = "%20", x = url)
+       #   
+       # } else if (length(input$categorySelect) >  1) {
+       #   url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%224af05575-052d-40ff-9311-d578319e810a%22%20WHERE%20%22SaleDate%22%20%3E=%20%27", 
+       #                 input$dateSelect[1], "%27%20AND%20%22SaleDate%22%20%3C=%20%27", input$dateSelect[2], 
+       #                 "%27%20AND%20%22CostsTaxes%22%20%3E=%20%27", input$taxesSelect[1],"%27%20AND%20%22CostsTaxes%22%20%3C=%20%27",input$taxesSelect[2], "%27",
+       #                 "%27%20AND%20%22ReadyForSale%22%20=%20%27", input$readySelect, "%27", 
+       #                 "%27%20AND%20%22SaleType%22%20=%20%27", input$categorySelect, "%27")
+       #   
+       #   url <- gsub(pattern = " ", replacement = "%20", x = url)
+       #   print(url)
+       #   # Multiple categorySelect inputs selected
+       # } else {
+       #   prim <- paste0(input$categorySelect, collapse = "%27%20OR%20%22SaleType%22%20=%20%27")
+       #   url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%224af05575-052d-40ff-9311-d578319e810a%22%20WHERE%20%22SaleDate%22%20%3E=%20%27", 
+       #                 input$dateSelect[1], "%27%20AND%20%22SaleDate%22%20%3C=%20%27", input$dateSelect[2],
+       #                 "%27%20AND%20%22CostsTaxes%22%20%3E=%20%27", input$taxesSelect[1],"%27%20AND%20%22CostsTaxes%22%20%3C=%20%27",input$taxesSelect[2], "%27",
+       #                 "%27%20AND%20%22ReadyForSale%22%20=%20%27", input$readySelect, "%27", 
+       #                 "%27%20AND%20%22SaleType%22%20=%20%27", prim, "%27")
+       #   url <- gsub(pattern = " ", replacement = "%20", x = url)}
+       # 
+       # data <- ckanSQL(url)
+       # 
+       # # Load and clean data
+       # if (is.null(data[1,1])){
+       #   alert("Err, seems like there's no data for this.")
+       # 
+       # } else {
          sale.load <- sale.load %>%
            mutate(
              City = case_when(
@@ -174,7 +200,9 @@ body <- dashboardBody(tabItems(
            )
          
          return(sale.load) 
-       }
+       #}
+       # zipcodes <- readOGR("County_Zip_Code.geojson")
+       
        
      })
    
@@ -201,34 +229,34 @@ body <- dashboardBody(tabItems(
    # })
 
    #map
-   output$map <- renderLeaflet({
-     # Plot map 
-     leaflet() %>%
-       
-       # Add Basemaps
-       addProviderTiles(providers$OpenMapSurfer.Grayscale, options = providerTileOptions(noWrap = TRUE)) %>%
-       addTiles(options = providerTileOptions(noWrap = TRUE), group = "Default") %>%
-       addProviderTiles("Esri.WorldTerrain", options = providerTileOptions(noWrap = TRUE), group = "Terrain") %>%
-       
-       # Set View
-       setView(lat = 40.44, lng = -79.95, zoom = 11.8) %>%
-       
-       # Add Pittsburgh Zip Codes
-       addPolygons(data = zipcodes, color = "#000000", label = ~ZIP, fillOpacity = 0.00) %>%
-       
-       # Add Layers control
-       addLayersControl(
-         baseGroups = c("Default", "Terrain"),
-         options = layersControlOptions(collapsed = FALSE)
-       ) %>%
-
-       # Add Sheriff Sale Points
-       addAwesomeMarkers(data = propInput(),
-                         lat = ~latitude,
-                         lng = ~longitude,
-                         label = ~SaleType,
-                         clusterOptions = markerClusterOptions())
-   })
+   # output$map <- renderLeaflet({
+   #   # Plot map 
+   #   leaflet() %>%
+   #     
+   #     # Add Basemaps
+   #     addProviderTiles(providers$OpenMapSurfer.Grayscale, options = providerTileOptions(noWrap = TRUE)) %>%
+   #     addTiles(options = providerTileOptions(noWrap = TRUE), group = "Default") %>%
+   #     addProviderTiles("Esri.WorldTerrain", options = providerTileOptions(noWrap = TRUE), group = "Terrain") %>%
+   #     
+   #     # Set View
+   #     setView(lat = 40.44, lng = -79.95, zoom = 11.8) %>%
+   #     
+   #     # Add Pittsburgh Zip Codes
+   #     addPolygons(data = zipcodes, color = "#000000", label = ~ZIP, fillOpacity = 0.00) %>%
+   #     
+   #     # Add Layers control
+   #     addLayersControl(
+   #       baseGroups = c("Default", "Terrain"),
+   #       options = layersControlOptions(collapsed = FALSE)
+   #     ) %>%
+   # 
+   #     # Add Sheriff Sale Points
+   #     addAwesomeMarkers(data = propInput(),
+   #                       lat = ~latitude,
+   #                       lng = ~longitude,
+   #                       label = ~SaleType,
+   #                       clusterOptions = markerClusterOptions())
+   # })
      
    # Plot 1-  Counts of Properties by Sale Types
    output$plot_types <- renderPlotly({
@@ -263,25 +291,34 @@ body <- dashboardBody(tabItems(
    output$table <- DT::renderDataTable({
      subset(propInput(), select = c(DocketNumber, SaleType, AttorneyName, Plaintiff, Defendant, SaleDate, Address, CostsTaxes))
    })
-
+   
+   # Updating the URL Bar
+   observe({
+     print(reactiveValuesToList(input))
+     session$doBookmark()
+   })
+   
+   onBookmarked(function(url) {
+     updateQueryString(url)
+   })
    # Common Attorney infobox
    output$attorney <- renderInfoBox({
      proper <- propInput()
-     name <- names(sort(table(sale.load$AttorneyName), decreasing = TRUE))
+     name <- names(sort(table(propInput$AttorneyName), decreasing = TRUE))
      valueBox(subtitle = "Is the most common Attorney", value = name, icon = icon("briefcase"),  color = "green")
    })
    
    # Average Taxes Owed infobox
    output$avgtaxes <- renderValueBox({
      proper <- propInput()
-     nums <- prettyNum(round(mean(sale.load$CostsTaxes, na.rm = T), 0))
+     nums <- prettyNum(round(mean(propInput$CostsTaxes, na.rm = T), 0))
      valueBox(subtitle = "Average Taxes Owed ", value = nums, icon = icon("usd"), color = "red")
    })
    
    # Most in a zipcode infobox
    output$zipcode <- renderValueBox({
      proper <- propInput()
-     name <- names(sort(table(sale.load$ZIPCode), decreasing = TRUE))
+     name <- names(sort(table(propInput$ZIPCode), decreasing = TRUE))
      valueBox(subtitle = "This Zipcode has the most Sheriff Sales", value = name, icon("home"), color = "blue")
    })
    
@@ -294,6 +331,7 @@ body <- dashboardBody(tabItems(
        write.csv(propInput(), file)
      })
  }
+ 
  # Run the application
 shinyApp(ui = ui, server = server)
 
