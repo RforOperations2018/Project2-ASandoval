@@ -39,19 +39,8 @@ taxes <- sort(ckanUniques("4af05575-052d-40ff-9311-d578319e810a", "CostsTaxes")$
 ready <- sort(ckanUniques("4af05575-052d-40ff-9311-d578319e810a", "ReadyForSale")$ReadyForSale)
   
   
-pdf(NULL)
+#pdf(NULL)
 
-sale.load <- sale.upload %>%
-  mutate(
-    City = case_when(
-      City %in% c("PITTSBURGH", "PITSBURGH", "PITTBURGH", "PITTSBIURGH", "PITTSBRGH", "PITTSBSURGH") ~ "Pittsburgh"),
-    SaleDate = as.POSIXct(SaleDate),
-    ZIPCode = str_replace_all(ZIPCode, '"', ""),
-    AttorneyName = str_replace_all(AttorneyName, '"', ""),
-    ReadyForSale = case_when(
-      ReadyForSale %in% c("yes", "yes.no", TRUE) ~ "Yes",
-      ReadyForSale %in% c("no", "no.no", FALSE) ~ "No")
-    )
 
 header <- dashboardHeader(title = "Pittsburgh Properties",
                           dropdownMenu(type = "messages",
@@ -132,9 +121,9 @@ body <- dashboardBody(tabItems(
  ui <- dashboardPage(header, sidebar, body)
 
  # Define server logic
- server <- function(input, output) 
+ server <- function(input, output, session) {
    
-   # Creating filtered pitt 311 data
+   # Creating filtered sheriff sale data
    sheriffsales <- reactive({
        # Build API Query with proper encodes
        # If no categorySelect input selected
@@ -154,13 +143,13 @@ body <- dashboardBody(tabItems(
          
          url <- gsub(pattern = " ", replacement = "%20", x = url)
          
-         # Multiple source_select inputs selected
+         # Multiple categorySelect inputs selected
        } else {
-         primary_desc_q <- paste0(input$source_select, collapse = "%27%20OR%20%22REQUEST_ORIGIN%22%20=%20%27")
-         url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%2276fda9d0-69be-4dd5-8108-0de7907fc5a4%22%20WHERE%20%22CREATED_ON%22%20%3E=%20%27", 
-                       input$date_select[1], "%27%20AND%20%22CREATED_ON%22%20%3C=%20%27", input$date_select[2], 
-                       "%27%20AND%20%22NEIGHBORHOOD%22%20=%20%27", input$nbhd_select, 
-                       "%27%20AND%20%22REQUEST_ORIGIN%22%20=%20%27", primary_desc_q, "%27")
+         prim <- paste0(input$categorySelect, collapse = "%27%20OR%20%22SaleType%22%20=%20%27")
+         url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%224af05575-052d-40ff-9311-d578319e810a%22%20WHERE%20%22SaleDate%22%20%3E=%20%27", 
+                       input$dateSelect[1], "%27%20AND%20%22SaleDate%22%20%3C=%20%27", input$dateSelect[2], 
+                       "%27%20AND%20%22ReadyForSale%22%20=%20%27", input$readySelect, "%27", "%27%20AND%20%22CostsTaxes%22%20=%20%27",input$taxesSelect, "%27",
+                       "%27%20AND%20%22SaleType%22%20=%20%27", prim, "%27")
          url <- gsub(pattern = " ", replacement = "%20", x = url)}
        
        data <- ckanSQL(url)
@@ -170,19 +159,24 @@ body <- dashboardBody(tabItems(
          alert("There is no data available for your selected inputs. Please reset filters and select different inputs.")
          # Now, if you wanna be fancy! You could have put in an updateInputs or autmatically click your button with shinyjs()
        } else {
-         data <- data %>%
-           mutate(DATE = as.Date(CREATED_ON),
-                  STATUS = ifelse(STATUS == 1, "Closed", "Open"))
+         sale.load <- sale.upload %>%
+           mutate(
+             City = case_when(
+               City %in% c("PITTSBURGH", "PITSBURGH", "PITTBURGH", "PITTSBIURGH", "PITTSBRGH", "PITTSBSURGH") ~ "Pittsburgh"),
+             SaleDate = as.POSIXct(SaleDate),
+             ZIPCode = str_replace_all(ZIPCode, '"', ""),
+             AttorneyName = str_replace_all(AttorneyName, '"', ""),
+             ReadyForSale = case_when(
+               ReadyForSale %in% c("yes", "yes.no", TRUE) ~ "Yes",
+               ReadyForSale %in% c("no", "no.no", FALSE) ~ "No")
+           )
          
-         return(data) 
+         return(sale.load) 
        }
        
      })
    
-   
-   
-   
-   {
+  
    # propInput <- reactive({
    #   property <- sale.load  %>%
    # 
