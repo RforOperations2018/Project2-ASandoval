@@ -19,6 +19,9 @@ library(plyr)
 #library(wordcloud2)
 library(htmltools)
 
+# Load date
+zipcodes <- rgdal::readOGR("http://openac-alcogis.opendata.arcgis.com/datasets/df8e66efc3dd4f2aadae81b55b2b65e7_0.geojson")
+
 ckanSQL <- function(url) {
   # Make the Request
   r <- RETRY("GET", URLencode(url))
@@ -40,7 +43,6 @@ ckanUniques <- function(field, id) {
 category <- sort(ckanUniques("SaleType", "4af05575-052d-40ff-9311-d578319e810a")$SaleType)
 taxes <- sort(ckanUniques("CostsTaxes", "4af05575-052d-40ff-9311-d578319e810a")$CostsTaxes)
 ready <- sort(ckanUniques("ReadyForSale", "4af05575-052d-40ff-9311-d578319e810a")$ReadyForSale)
-  
   
 #pdf(NULL)
 
@@ -67,7 +69,7 @@ sidebar <- dashboardSidebar(
                 choices = category,
                 multiple = TRUE,
                 selectize = TRUE,
-                selected = c("Mortgage Foreclosure", "Municipal Lien", "Other Real Estate", "Sci Fa sur Tax Lien")),
+                selected = c( "Municipal Lien", "Other Real Estate")),
 
    # Date Select
     dateRangeInput("dateSelect",
@@ -140,16 +142,10 @@ body <- dashboardBody(tabItems(
                    gsub(" ", "%20", input$categorySelect[2]), "%27%2C%20%27",
                    gsub(" ", "%20", input$categorySelect[3]), "%27%2C%20%27",
                    gsub(" ", "%20", input$categorySelect[4]), "%27%29%20AND%20%22City%22%20%3D%20%27PITTSBURGH%27")
-
-                   
      
      #dates don't work
                    # "%27%20AND%22SaleDate%22%20%3E%3D%27", input$dateSelect[1], 
                    # "%27%20AND%20%22SaleDate%22%20%3C%3d%27", input$dateSelect[2], "%27")
-                   
-                   
-                   
-              
   
   print(url)
      
@@ -166,49 +162,48 @@ body <- dashboardBody(tabItems(
                ReadyForSale %in% c("yes", "yes.no", TRUE) ~ "Yes",
                ReadyForSale %in% c("no", "no.no", FALSE) ~ "No")
            )
-      
+         #sale.load <- na.omit(sale.load)
          return(sale.load) 
-        
 
-       zipcodes <- readOGR("County_Zip_Code.geojson")
+       
      })
 
   # map
-   # output$map <- renderLeaflet({
-   #   # Plot map
-   #   leaflet() %>%
-   # 
-   #     # Add Basemaps
-   #     addProviderTiles(providers$OpenMapSurfer.Grayscale, options = providerTileOptions(noWrap = TRUE)) %>%
-   #     addTiles(options = providerTileOptions(noWrap = TRUE), group = "Default") %>%
-   #     addProviderTiles("Esri.WorldTerrain", options = providerTileOptions(noWrap = TRUE), group = "Terrain") %>%
-   # 
-   #     # Set View
-   #     setView(lat = 40.44, lng = -79.95, zoom = 11.8) %>%
-   # 
-   #     # Add Pittsburgh Zip Codes
-   #     addPolygons(data = zipcodes, color = "#000000", label = ~ZIP, fillOpacity = 0.00) %>%
-   # 
-   #     # Add Layers control
-   #     addLayersControl(
-   #       baseGroups = c("Default", "Terrain"),
-   #       options = layersControlOptions(collapsed = FALSE)
-   #     ) %>%
-   # 
-   #     # Add Sheriff Sale Points
-   #     addAwesomeMarkers(data = propInput(),
-   #                       lat = ~latitude,
-   #                       lng = ~longitude,
-   #                       label = ~SaleType,
-   #                       clusterOptions = markerClusterOptions())
-   # })
-   #   
+   output$map <- renderLeaflet({
+     # Plot map
+     leaflet() %>%
+
+       # Add Basemaps
+       addProviderTiles(providers$OpenMapSurfer.Grayscale, options = providerTileOptions(noWrap = TRUE)) %>%
+       addTiles(options = providerTileOptions(noWrap = TRUE), group = "Default") %>%
+       addProviderTiles("Esri.WorldImagery", options = providerTileOptions(noWrap = TRUE), group = "Imagery") %>%
+
+       # Set View
+       setView(lat = 40.44, lng = -79.95, zoom = 11.8) %>%
+
+       # Add Pittsburgh Zip Codes
+       addPolygons(data = zipcodes, color = "#000000", label = ~ZIP, fillOpacity = 0.00) %>%
+
+       # Add Layers control
+       addLayersControl(
+         baseGroups = c("Default", "Imagery"),
+         options = layersControlOptions(collapsed = FALSE)
+       ) %>%
+
+       # Add Sheriff Sale Points
+       addAwesomeMarkers(data = propInput(),
+                         lat = ~latitude,
+                         lng = ~longitude,
+                         label = ~SaleType,
+                         clusterOptions = markerClusterOptions())
+   })
+
    # Plot 1-  Counts of Properties by Sale Types
    output$plot_types <- renderPlotly({
      property <- propInput()
      ggplotly( ggplot(data = property,
             aes(x = CostsTaxes, color = SaleType))  +
-       geom_freqpoly(binwidth = 500) +
+       geom_freqpoly(binwidth = 500, na.rm = TRUE) +
        guides(fill = FALSE) +
        scale_y_continuous(name = "Count of Properties") +
        scale_x_continuous(name = "Taxes Owed") +
