@@ -199,8 +199,8 @@ body <- dashboardBody(tabItems(
    output$plot_types <- renderPlotly({
      property <- propInput()
      ggplotly( ggplot(data = property,
-            aes(x = CostsTaxes, color = SaleType))  +
-       geom_freqpoly(binwidth = 500, na.rm = TRUE) +
+            aes(x = CostsTaxes, fill = SaleType))  +
+              geom_area(stat = "bin", na.rm = T) +
        guides(fill = FALSE) +
        scale_y_continuous(name = "Count of Properties") +
        scale_x_continuous(name = "Taxes Owed") +
@@ -215,8 +215,8 @@ body <- dashboardBody(tabItems(
      property <- propInput()
      ggplotly( ggplot (data = property,
             aes (x = ZIPCode,
-                y = round(CostsTaxes, 0))) +
-       geom_col (position = position_dodge(width = 0.9), na.rm = TRUE) +
+                y = round(CostsTaxes, 0), fill = SaleType)) +
+              geom_bar(stat = "identity", na.rm = T) +
        guides (fill = FALSE) +
        theme(axis.text.x = element_text(angle = 30,
                                         hjust = 1),
