@@ -15,8 +15,6 @@ library(shinyjs)
 library(httr)
 library(jsonlite)
 library(plyr)
-#library(shinyWidgets)
-#library(wordcloud2)
 library(htmltools)
 
 # Load date
@@ -74,10 +72,10 @@ sidebar <- dashboardSidebar(
    # Date Select
     dateRangeInput("dateSelect",
                    "Sheriff Sale Auction Date:",
-                   start = Sys.Date()-38, end = Sys.Date()-7,
-                   min = "2001-01-01", max = Sys.Date()-7,
-                   format = "yyyy-mm-dd", startview = "month", weekstart = 0,
-                   language = "en", separator = " to ", width = NULL),
+                   start = Sys.Date()-30,
+                   end = Sys.Date(),
+                   format = "mm/dd/yyyy"),
+  
    
    # Select Amount Owed
    sliderInput("taxesSelect",
@@ -142,10 +140,11 @@ body <- dashboardBody(tabItems(
                    gsub(" ", "%20", input$categorySelect[2]), "%27%2C%20%27",
                    gsub(" ", "%20", input$categorySelect[3]), "%27%2C%20%27",
                    gsub(" ", "%20", input$categorySelect[4]), "%27%29%20AND%20%22City%22%20%3D%20%27PITTSBURGH%27")
-     
-     #dates don't work
-                   # "%27%20AND%22SaleDate%22%20%3E%3D%27", input$dateSelect[1], 
-                   # "%27%20AND%20%22SaleDate%22%20%3C%3d%27", input$dateSelect[2], "%27")
+                   
+                  
+     #dates do not work
+     # "20AND%20%22SaleDate%22%20%3E%3D%27", 
+     # input$dateSelect[1], "T00:00:00%27%20AND%20%22SaleDate%22%20%3C%3D%27",input$dateSelect[2] , "T23:59:59%27")
   
   print(url)
      
@@ -155,8 +154,6 @@ body <- dashboardBody(tabItems(
            mutate(
              AttorneyName = str_replace_all(AttorneyName, '"', ""),
              SaleDate = as.POSIXct(SaleDate),
-             City = case_when(
-               City %in% c("PITTSBURGH", "PITSBURGH", "PITTBURGH", "PITTSBIURGH", "PITTSBRGH", "PITTSBSURGH") ~ "Pittsburgh"),
              ZIPCode = str_replace_all(ZIPCode, '"', ""),
              ReadyForSale = case_when(
                ReadyForSale %in% c("yes", "yes.no", TRUE) ~ "Yes",
@@ -215,17 +212,16 @@ body <- dashboardBody(tabItems(
    
    # Plot 2- Plot showing taxes owed by zip code
    output$plot_taxes <- renderPlotly({
-     
      property <- propInput()
      ggplotly( ggplot (data = property,
             aes (x = ZIPCode,
-                y = round (CostsTaxes, 0))) +
+                y = round(CostsTaxes, 0))) +
        geom_col (position = position_dodge(width = 0.9), na.rm = TRUE) +
        guides (fill = FALSE) +
        theme(axis.text.x = element_text(angle = 30,
                                         hjust = 1),
              axis.text = element_text(size = rel(0.5))) +
-       scale_y_continuous (name = "Sum of Taxes Owed") +
+         scale_y_continuous(labels = dollar_format(prefix ="$"), name = "Sum of Taxes Owed") +
        scale_x_discrete (name = "Zip Code"))
    })
 
@@ -233,8 +229,13 @@ body <- dashboardBody(tabItems(
    output$table <- DT::renderDataTable({
      df <- propInput()
      subset(df, select = c(DocketNumber, SaleType, AttorneyName, Plaintiff, Defendant, SaleDate, Address, CostsTaxes))
-   })
-  
+   },
+   options = list(
+     autoWidth = TRUE,
+     scrollX = TRUE,
+     columnDefs = list(list(width = '200px', targets = "_all"))
+   ))
+   
    # Common Attorney infobox
    output$attorney <- renderInfoBox({
      proper <- propInput()
@@ -268,10 +269,10 @@ body <- dashboardBody(tabItems(
    # Reset Filter Data
    observeEvent(input$reset, {
      updateSelectInput(session, "categorySelect", selected = "Mortgage Foreclosure")
-     #updateDateRangeInput(session, "dateSelect", selected = c("Mostly familiar"))
+     updateDateRangeInput(session, "dateSelect", start = NULL, end = ys.Date()-7)
      updateSliderInput(session, "taxesSelect", value = c(min(taxes), max(taxes)))
      updateSelectizeInput(session, "readySelect", selected = c("Yes"))
-     showNotification("You have successfully reset the filters! Make sure to hit the Submit again!", type = "message")
+     showNotification("You have successfully reset the filters! Make sure to hit the Submit button again!", type = "message")
    })
  }
  
