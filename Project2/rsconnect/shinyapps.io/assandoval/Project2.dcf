@@ -1,0 +1,13 @@
+name: Project2
+title: Project2
+username:
+account: assandoval
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 525773
+bundleId: 1652502
+url: https://assandoval.shinyapps.io/Project2/
+when: 1540007537.595
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: County_Zip_Code.geojson|finalmarkers.geojson|marathon.geojson|Neighborhoods_Philadelphia.geojson|projectdata_7.csv|sales_2.csv|sales.csv

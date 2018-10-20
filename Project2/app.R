@@ -17,7 +17,7 @@ library(jsonlite)
 library(plyr)
 library(htmltools)
 
-# Load date
+# Load map data
 zipcodes <- rgdal::readOGR("http://openac-alcogis.opendata.arcgis.com/datasets/df8e66efc3dd4f2aadae81b55b2b65e7_0.geojson")
 
 ckanSQL <- function(url) {
@@ -31,19 +31,18 @@ ckanSQL <- function(url) {
   data.frame(jsonlite::fromJSON(json)$result$records)
 }
 
-
 # Unique values for Resource Field
 ckanUniques <- function(field, id) {
   url <- paste0("https://data.wprdc.org/api/action/datastore_search_sql?sql=SELECT%20DISTINCT(%22", field, "%22)%20from%20%22", id, "%22")
   c(ckanSQL(URLencode(url)))
 }
 
+# Unique names
 category <- sort(ckanUniques("SaleType", "4af05575-052d-40ff-9311-d578319e810a")$SaleType)
 taxes <- sort(ckanUniques("CostsTaxes", "4af05575-052d-40ff-9311-d578319e810a")$CostsTaxes)
-ready <- sort(ckanUniques("ReadyForSale", "4af05575-052d-40ff-9311-d578319e810a")$ReadyForSale)
+services <- sort(ckanUniques("ServiceCompleted", "4af05575-052d-40ff-9311-d578319e810a")$ServiceCompleted)
   
 #pdf(NULL)
-
 
 header <- dashboardHeader(title = "Pittsburgh Properties",
                           dropdownMenu(type = "messages",
@@ -85,16 +84,16 @@ sidebar <- dashboardSidebar(
                 value = c(min(taxes), max(taxes)),
                 step = 5000),
 
-    # Select Ready for Auction
-   selectizeInput("readySelect",
-                  "Is the Property Ready for Auction?",
-                  choices = c("Yes", "No"),
+    # Select Defendent knows
+   selectizeInput("servicesSelect",
+                  "Does the defendant know the property is available for auction?",
+                  choices = c("0", "1"),
                   multiple = FALSE,
-                  selected = "Yes"),
+                  selected = "1"),
    
    # Reset button
    actionButton("reset", "Reset Filters", icon = icon("refresh")),
-   actionButton("button", "Submit")
+   actionButton("button", "Click to View Changes")
   ))
 
 body <- dashboardBody(tabItems(
@@ -139,17 +138,19 @@ body <- dashboardBody(tabItems(
                    gsub(" ", "%20", input$categorySelect[1]), "%27%2C%20%27",
                    gsub(" ", "%20", input$categorySelect[2]), "%27%2C%20%27",
                    gsub(" ", "%20", input$categorySelect[3]), "%27%2C%20%27",
-                   gsub(" ", "%20", input$categorySelect[4]), "%27%29%20AND%20%22City%22%20%3D%20%27PITTSBURGH%27")
+                   gsub(" ", "%20", input$categorySelect[4]), "%27%29%20AND%20%22City%22%20%3D%20%27PITTSBURGH%27%20AND%20%22ServiceCompleted%22%20%3d%27", input$servicesSelect[1],  "%27")
                    
-                  
-     #dates do not work
-     # "20AND%20%22SaleDate%22%20%3E%3D%27", 
-     # input$dateSelect[1], "T00:00:00%27%20AND%20%22SaleDate%22%20%3C%3D%27",input$dateSelect[2] , "T23:59:59%27")
-  
+     # dates do not work
+                  # "%20AND%20%22SaleDate%22%20%3E%3D%27", 
+                  #  input$dateSelect[1], "T00:00:00Z%27%20AND%20%22SaleDate%22%20%3C%3D%27",input$dateSelect[2] , "T23:59:59Z%27")
+              
+     # originally tried using ReadyForSale field, but couldn't get it to work. These are MULTIPLE attempts at trying to make it work
+     #"https://data.wprdc.org/api/3/action/datastore_search_sql?sql=SELECT%20*%2C%20CASE%20WHEN%20ReadyForSale%20IN%20c%28%27no%27%2C%20%27no.no%27%2C%20%27FALSE%27%29%20THEN%20%27No%27%20else%20ReadyForSale%20FROM"
+
+     # https://data.wprdc.org/api/3/action/datastore_search_sql?sql=SELECT *, CASE WHEN ReadyForSale = 'no' then 'WHEN ReadyForSale = 'no.no' THEN 'No' WHEN ReadyForSale =  'FALSE' THEN 'No' No' else ReadyForSale FROM 4af05575-052d-40ff-9311-d578319e810a
+
   print(url)
-     
-     
-     
+  
          sale.load <- ckanSQL(url) %>%
            mutate(
              AttorneyName = str_replace_all(AttorneyName, '"', ""),
@@ -159,10 +160,9 @@ body <- dashboardBody(tabItems(
                ReadyForSale %in% c("yes", "yes.no", TRUE) ~ "Yes",
                ReadyForSale %in% c("no", "no.no", FALSE) ~ "No")
            )
+         
          #sale.load <- na.omit(sale.load)
-         return(sale.load) 
-
-       
+         return(sale.load)
      })
 
   # map
@@ -203,12 +203,11 @@ body <- dashboardBody(tabItems(
               geom_area(stat = "bin", na.rm = T) +
        guides(fill = FALSE) +
        scale_y_continuous(name = "Count of Properties") +
-       scale_x_continuous(name = "Taxes Owed") +
+       scale_x_continuous(labels = dollar_format(prefix ="$"), name = "Taxes Owed") +
        theme(axis.text.x = element_text(angle = 15,
                                         vjust = 1,
                                         hjust = 1)))
    })
-   
    
    # Plot 2- Plot showing taxes owed by zip code
    output$plot_taxes <- renderPlotly({
@@ -221,7 +220,7 @@ body <- dashboardBody(tabItems(
        theme(axis.text.x = element_text(angle = 30,
                                         hjust = 1),
              axis.text = element_text(size = rel(0.5))) +
-         scale_y_continuous(labels = dollar_format(prefix ="$"), name = "Sum of Taxes Owed") +
+       scale_y_continuous(labels = dollar_format(prefix ="$"), name = "Sum of Taxes Owed") +
        scale_x_discrete (name = "Zip Code"))
    })
 
@@ -240,21 +239,21 @@ body <- dashboardBody(tabItems(
    output$attorney <- renderInfoBox({
      proper <- propInput()
      name <- names(sort(table(proper$AttorneyName), decreasing = TRUE))
-     valueBox(subtitle = "Is the most common Attorney", value = name, icon = icon("briefcase"),  color = "green")
+     valueBox(subtitle = "Is the most common attorney", value = name, icon = icon("briefcase"),  color = "green")
    })
    
    # Average Taxes Owed infobox
    output$avgtaxes <- renderValueBox({
      proper <- propInput()
-     nums <- prettyNum(round(mean(proper$CostsTaxes, na.rm = T), 0))
-     valueBox(subtitle = "Average Taxes Owed ", value = nums, icon = icon("usd"), color = "red")
+     nums <- round(mean(proper$CostsTaxes, na.rm = T), 0)
+     valueBox(subtitle = "Average taxes owed", value = paste0("$", nums), icon = icon("usd"), color = "red")
    })
    
    # Most in a zipcode infobox
    output$zipcode <- renderValueBox({
      proper <- propInput()
      name <- names(sort(table(proper$ZIPCode), decreasing = TRUE))
-     valueBox(subtitle = "This Zipcode has the most Sheriff Sales", value = name, icon("home"), color = "blue")
+     valueBox(subtitle = "Is the zipcode with the most sheriff-sales", value = name, icon("home"), color = "blue")
    })
 
    # Make data downloadable and set default download name
@@ -269,9 +268,9 @@ body <- dashboardBody(tabItems(
    # Reset Filter Data
    observeEvent(input$reset, {
      updateSelectInput(session, "categorySelect", selected = "Mortgage Foreclosure")
-     updateDateRangeInput(session, "dateSelect", start = NULL, end = ys.Date()-7)
+    # updateDateRangeInput(session, "dateSelect", start = NULL, end = ys.Date()-7)
      updateSliderInput(session, "taxesSelect", value = c(min(taxes), max(taxes)))
-     updateSelectizeInput(session, "readySelect", selected = c("Yes"))
+     updateSelectizeInput(session, "readySelect", selected = c("no"))
      showNotification("You have successfully reset the filters! Make sure to hit the Submit button again!", type = "message")
    })
  }
