@@ -93,7 +93,7 @@ sidebar <- dashboardSidebar(
    
    # Reset button
    actionButton("reset", "Reset Filters", icon = icon("refresh")),
-   actionButton("button", "Click to View Changes")
+   actionButton("button", "Click to View Changes") # I'll be honest, I didn't know I had to click this until I looked at your code, I think a slightly better name would have made this more clear.
   ))
 
 body <- dashboardBody(tabItems(
@@ -134,7 +134,7 @@ body <- dashboardBody(tabItems(
        # API Stuff
 
      url <- paste0("https://data.wprdc.org/api/3/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%224af05575-052d-40ff-9311-d578319e810a%22%20WHERE%20%22CostsTaxes%22%20%3E%3D%27", 
-                   input$taxesSelect[1],"%27%20AND%20%22CostsTaxes%22%20%3C%3d%27", input$taxesSelect[2], "%27%20AND%20%22SaleType%22%20IN%20%28%27",
+                   input$taxesSelect[1],"%27%20AND%20%22CostsTaxes%22%20%3C%3d%27", input$taxesSelect[2], "%27%20AND%20%22SaleType%22%20IN%20%28%27", # So, this doesn't work if the selection is empty...
                    gsub(" ", "%20", input$categorySelect[1]), "%27%2C%20%27",
                    gsub(" ", "%20", input$categorySelect[2]), "%27%2C%20%27",
                    gsub(" ", "%20", input$categorySelect[3]), "%27%2C%20%27",
